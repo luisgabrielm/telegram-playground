@@ -1,14 +1,29 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { tick, untrack } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import type { ActionData, PageProps } from './$types';
 
+	type MethodId = 'getMe' | 'sendMessage';
+
+	const methodGroups = [
+		{
+			label: 'Bot',
+			methods: [{ id: 'getMe', label: 'Bot information', apiMethod: 'getMe' }]
+		},
+		{
+			label: 'Messages',
+			methods: [{ id: 'sendMessage', label: 'Text message', apiMethod: 'sendMessage' }]
+		}
+	] as const;
+
 	let { data, form }: PageProps = $props();
 	const initialForm = untrack(() => form);
 
+	let activeMethod = $state<MethodId>(
+		initialForm?.action === 'sendMessage' ? 'sendMessage' : 'getMe'
+	);
 	let getMePending = $state(false);
 	let sendPending = $state(false);
 	let getMeFeedback = $state<ActionData | null>(
@@ -101,593 +116,706 @@
 
 <svelte:head>
 	<title>Telegram API Playground</title>
-	<meta
-		name="description"
-		content="A focused local playground for testing Telegram Bot API methods."
-	/>
+	<meta name="description" content="Internal tool for testing Telegram Bot API methods." />
 </svelte:head>
 
-<header class="hero">
-	<nav class="nav" aria-label="Primary navigation">
-		<a class="brand" href={resolve('/')} aria-label="Telegram API Playground home">
-			<span class="brand-mark" aria-hidden="true">
-				<svg viewBox="0 0 24 24" role="img">
+<div class="app-shell">
+	<header class="topbar">
+		<div class="product-name">
+			<span class="product-icon" aria-hidden="true">
+				<svg viewBox="0 0 24 24">
 					<path d="M20.7 3.4 3.8 9.9c-1.2.5-1.2 1.2-.2 1.5l4.3 1.3 1.7 5.2c.2.6.1.9.8.9.5 0 .8-.2 1-.4l2.1-2 4.4 3.2c.8.4 1.4.2 1.6-.8l2.8-13.5c.3-1.2-.5-1.8-1.6-1.9ZM9.5 12.4l8.4-5.3c.4-.3.8-.1.5.2l-6.9 6.3-.3 3.4-1.7-4.6Z" />
 				</svg>
 			</span>
-			<span>Telegram <strong>Playground</strong></span>
-		</a>
-		<span class="version">V1 · Text messages</span>
-	</nav>
-
-	<div class="hero-content">
-		<div>
-			<p class="eyebrow"><span></span> Bot API workspace</p>
-			<h1>Test your bot.<br /><em>See exactly what happened.</em></h1>
-			<p class="hero-copy">
-				A focused, server-safe workspace for checking your bot identity and sending your first
-				Telegram message.
-			</p>
-		</div>
-		<div class="hero-note">
-			<svg viewBox="0 0 24 24" aria-hidden="true">
-				<path d="M12 2 4.5 5v5.5c0 4.8 3.2 9.2 7.5 10.5 4.3-1.3 7.5-5.7 7.5-10.5V5L12 2Zm0 2.2 5.5 2.2v4.1c0 3.6-2.2 7-5.5 8.3-3.3-1.3-5.5-4.7-5.5-8.3V6.4L12 4.2Zm-1 3.3v5.8l-2.3-2.2-1.4 1.4 4.7 4.6 4.7-4.6-1.4-1.4-2.3 2.2V7.5h-2Z" />
-			</svg>
 			<div>
-				<strong>Your token stays server-side</strong>
-				<span>Browser requests never receive your bot credentials.</span>
+				<strong>Telegram API Playground</strong>
+				<span>Local development tool</span>
 			</div>
 		</div>
-	</div>
-</header>
 
-<main>
-	<section class="workspace-heading" aria-labelledby="workspace-title">
-		<div>
-			<p class="section-kicker">Workspace</p>
-			<h2 id="workspace-title">Start with the essentials</h2>
+		<div class:configured={data.configured} class="config-status">
+			<span class="status-dot"></span>
+			{data.configured ? 'Token configured' : 'Token not configured'}
 		</div>
-		<p>Run each method independently. Responses stay visible until you run that method again.</p>
-	</section>
+	</header>
 
-	<div class="method-grid">
-		<section class="method-card identity-card" aria-labelledby="get-me-title">
-			<div class="card-topline">
-				<span class="step-number">01</span>
-				<span class:ready={data.configured} class="status-pill">
-					<span></span>{data.configured ? 'Token configured' : 'Setup required'}
-				</span>
-			</div>
-
-			<div class="method-heading">
-				<div class="method-name">
-					<span>Method</span>
-					<code>getMe</code>
-				</div>
-				<h3 id="get-me-title">Meet your bot</h3>
-				<p>Confirm that the token is valid and inspect the bot account connected to it.</p>
-			</div>
-
-			<form method="POST" action="?/getMe" use:enhance={enhanceGetMe} aria-busy={getMePending}>
-				<button class="button primary" type="submit" disabled={getMePending}>
-					{#if getMePending}
-						<span class="spinner" aria-hidden="true"></span>
-						Checking bot…
-					{:else}
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.8-4.3L13 11h7V4l-2.4 2.4A7.9 7.9 0 0 0 12 4Z" />
-						</svg>
-						Run getMe
-					{/if}
-				</button>
-			</form>
-
-			<div class="result-region" aria-live="polite">
-				{#if !data.configured && !getMeFeedback}
-					<div class="notice warning">
-						<strong>Add your bot token</strong>
-						<span>Copy <code>.env.example</code> to <code>.env</code>, then restart the server.</span>
-					</div>
-				{:else if getMeFeedback?.action === 'getMe' && getMeFeedback.success && getMeFeedback.response}
-					<div class="bot-profile">
-						<div class="bot-avatar" aria-hidden="true">
-							{getMeFeedback.response.result.first_name.slice(0, 1).toUpperCase()}
-						</div>
-						<div class="bot-details">
-							<span class="success-label">Connected successfully</span>
-							<strong>{getMeFeedback.response.result.first_name}</strong>
-							{#if getMeFeedback.response.result.username}
-								<a
-									href={`https://t.me/${getMeFeedback.response.result.username}`}
-									target="_blank"
-									rel="noreferrer"
-								>@{getMeFeedback.response.result.username}</a
+	<div class="app-body">
+		<aside class="sidebar">
+			<nav aria-label="Telegram API methods">
+				{#each methodGroups as group (group.label)}
+					<div class="method-group">
+						<p>{group.label}</p>
+						<div class="method-list">
+							{#each group.methods as method (method.id)}
+								<button
+									type="button"
+									class:active={activeMethod === method.id}
+									aria-current={activeMethod === method.id ? 'page' : undefined}
+									onclick={() => (activeMethod = method.id)}
 								>
-							{/if}
-							<small>Bot ID · {getMeFeedback.response.result.id}</small>
+									<span>{method.label}</span>
+									<code>{method.apiMethod}</code>
+								</button>
+							{/each}
 						</div>
 					</div>
-				{:else if getMeFeedback?.action === 'getMe' && !getMeFeedback.success}
-					<div class="notice error" role="alert">
-						<strong>Could not verify the bot</strong>
-						<span>{getMeFeedback.error}</span>
-					</div>
-				{:else}
-					<div class="empty-result">
-						<span aria-hidden="true">↗</span>
-						<p>Your bot identity will appear here.</p>
-					</div>
-				{/if}
+				{/each}
+			</nav>
 
-				{#if getMeFeedback?.action === 'getMe' && getMeFeedback.response}
-					<details class="raw-response">
-						<summary>View raw response <span>JSON</span></summary>
-						<pre>{rawJson(getMeFeedback.response)}</pre>
-					</details>
-				{/if}
+			<div class="sidebar-footer">
+				<span>Environment</span>
+				<code>TELEGRAM_BOT_TOKEN</code>
 			</div>
-		</section>
+		</aside>
 
-		<section class="method-card message-card" aria-labelledby="send-message-title">
-			<div class="card-topline">
-				<span class="step-number">02</span>
-				<span class="scope-pill">Plain text</span>
-			</div>
+		<main>
+			{#if activeMethod === 'getMe'}
+				<header class="method-header">
+					<div>
+						<div class="method-meta"><span>POST</span><code>getMe</code></div>
+						<h1>Bot information</h1>
+						<p>Validate the configured token and return basic information about the bot.</p>
+					</div>
+					<a href="https://core.telegram.org/bots/api#getme" target="_blank" rel="noreferrer">
+						API reference <span aria-hidden="true">↗</span>
+					</a>
+				</header>
 
-			<div class="method-heading">
-				<div class="method-name">
-					<span>Method</span>
-					<code>sendMessage</code>
+				<div class="workspace">
+					<section class="request-panel" aria-labelledby="get-me-request-title">
+						<div class="panel-header">
+							<div>
+								<h2 id="get-me-request-title">Request</h2>
+								<p>This method has no parameters.</p>
+							</div>
+						</div>
+
+						<div class="no-parameters">
+							<span>&lbrace;&rbrace;</span>
+							<p>No request body required</p>
+						</div>
+
+						<form method="POST" action="?/getMe" use:enhance={enhanceGetMe} aria-busy={getMePending}>
+							<button class="primary-button" type="submit" disabled={getMePending}>
+								{#if getMePending}
+									<span class="spinner" aria-hidden="true"></span>Sending request…
+								{:else}
+									Send request
+								{/if}
+							</button>
+						</form>
+					</section>
+
+					<section class="response-panel" aria-labelledby="get-me-response-title" aria-live="polite">
+						<div class="panel-header response-header">
+							<h2 id="get-me-response-title">Response</h2>
+							{#if getMeFeedback?.action === 'getMe'}
+								<span class:success-code={getMeFeedback.success} class="response-code">
+									{getMeFeedback.success ? '200 OK' : 'ERROR'}
+								</span>
+							{/if}
+						</div>
+
+						{#if !data.configured && !getMeFeedback}
+							<div class="notice warning" role="status">
+								<strong>Bot token is not configured</strong>
+								<p>Set <code>TELEGRAM_BOT_TOKEN</code> in <code>.env</code> and restart the server.</p>
+							</div>
+						{:else if getMeFeedback?.action === 'getMe' && getMeFeedback.success && getMeFeedback.response}
+							<div class="response-summary">
+								<dl>
+									<div><dt>ID</dt><dd>{getMeFeedback.response.result.id}</dd></div>
+									<div><dt>Name</dt><dd>{getMeFeedback.response.result.first_name}</dd></div>
+									<div>
+										<dt>Username</dt>
+										<dd>{getMeFeedback.response.result.username ? `@${getMeFeedback.response.result.username}` : '—'}</dd>
+									</div>
+									<div><dt>Bot account</dt><dd>{getMeFeedback.response.result.is_bot ? 'Yes' : 'No'}</dd></div>
+								</dl>
+							</div>
+						{:else if getMeFeedback?.action === 'getMe' && !getMeFeedback.success}
+							<div class="notice error" role="alert">
+								<strong>Request failed</strong>
+								<p>{getMeFeedback.error}</p>
+							</div>
+						{:else}
+							<div class="empty-response">
+								<code>&lbrace;&rbrace;</code>
+								<p>Send the request to inspect the response.</p>
+							</div>
+						{/if}
+
+						{#if getMeFeedback?.action === 'getMe' && getMeFeedback.response}
+							<details class="raw-response">
+								<summary>Raw JSON</summary>
+								<pre>{rawJson(getMeFeedback.response)}</pre>
+							</details>
+						{/if}
+					</section>
 				</div>
-				<h3 id="send-message-title">Send a text message</h3>
-				<p>Choose a Telegram chat and send a plain-text message from your bot.</p>
-			</div>
-
-			<form
-				class="message-form"
-				method="POST"
-				action="?/sendMessage"
-				use:enhance={enhanceSendMessage}
-				aria-busy={sendPending}
-			>
-				<div class="field-group">
-					<div class="label-line">
-						<label for="chatId">Chat ID</label>
-						<span>Required</span>
+			{:else}
+				<header class="method-header">
+					<div>
+						<div class="method-meta"><span>POST</span><code>sendMessage</code></div>
+						<h1>Text message</h1>
+						<p>Send a plain-text message to a chat, group, or channel.</p>
 					</div>
-					<input
-						id="chatId"
-						name="chatId"
-						type="text"
-						placeholder="123456789 or @channel"
-						bind:value={chatId}
-						{@attach captureChatIdInput}
-						aria-describedby="chat-id-help chat-id-error"
-						aria-invalid={sendFeedback?.action === 'sendMessage' && Boolean(sendFeedback.fieldErrors?.chatId)}
-					/>
-					<p id="chat-id-help" class="field-help">Use a numeric chat ID or public channel username.</p>
-					{#if sendFeedback?.action === 'sendMessage' && sendFeedback.fieldErrors?.chatId}
-						<p id="chat-id-error" class="field-error">{sendFeedback.fieldErrors.chatId}</p>
-					{/if}
+					<a href="https://core.telegram.org/bots/api#sendmessage" target="_blank" rel="noreferrer">
+						API reference <span aria-hidden="true">↗</span>
+					</a>
+				</header>
+
+				<div class="workspace">
+					<section class="request-panel" aria-labelledby="send-request-title">
+						<div class="panel-header">
+							<div>
+								<h2 id="send-request-title">Request</h2>
+								<p>Required parameters</p>
+							</div>
+						</div>
+
+						<form
+							class="message-form"
+							method="POST"
+							action="?/sendMessage"
+							use:enhance={enhanceSendMessage}
+							aria-busy={sendPending}
+						>
+							<div class="field-group">
+								<div class="label-row">
+									<label for="chatId">chat_id</label>
+									<span>String · required</span>
+								</div>
+								<input
+									id="chatId"
+									name="chatId"
+									type="text"
+									placeholder="123456789 or @channel"
+									bind:value={chatId}
+									{@attach captureChatIdInput}
+									aria-describedby="chat-id-help chat-id-error"
+									aria-invalid={sendFeedback?.action === 'sendMessage' && Boolean(sendFeedback.fieldErrors?.chatId)}
+								/>
+								<p id="chat-id-help" class="field-help">Numeric chat ID or public channel username.</p>
+								{#if sendFeedback?.action === 'sendMessage' && sendFeedback.fieldErrors?.chatId}
+									<p id="chat-id-error" class="field-error">{sendFeedback.fieldErrors.chatId}</p>
+								{/if}
+							</div>
+
+							<div class="field-group">
+								<div class="label-row">
+									<label for="messageText">text</label>
+									<span class:over-limit={messageText.length > 4096}>
+										String · required · {messageText.length.toLocaleString()}/4,096
+									</span>
+								</div>
+								<textarea
+									id="messageText"
+									name="text"
+									rows="8"
+									placeholder="Message text"
+									bind:value={messageText}
+									{@attach captureMessageTextInput}
+									aria-describedby="message-help message-error"
+									aria-invalid={sendFeedback?.action === 'sendMessage' && Boolean(sendFeedback.fieldErrors?.text)}
+								></textarea>
+								<p id="message-help" class="field-help">Sent without a parse mode.</p>
+								{#if sendFeedback?.action === 'sendMessage' && sendFeedback.fieldErrors?.text}
+									<p id="message-error" class="field-error">{sendFeedback.fieldErrors.text}</p>
+								{/if}
+							</div>
+
+							<button class="primary-button" type="submit" disabled={sendPending}>
+								{#if sendPending}
+									<span class="spinner" aria-hidden="true"></span>Sending request…
+								{:else}
+									Send request
+								{/if}
+							</button>
+						</form>
+					</section>
+
+					<section class="response-panel" aria-labelledby="send-response-title" aria-live="polite">
+						<div class="panel-header response-header">
+							<h2 id="send-response-title">Response</h2>
+							{#if sendFeedback?.action === 'sendMessage' && sendFeedback.response}
+								<span class:success-code={sendFeedback.success} class="response-code">
+									{sendFeedback.success ? '200 OK' : 'ERROR'}
+								</span>
+							{/if}
+						</div>
+
+						{#if sendFeedback?.action === 'sendMessage' && sendFeedback.success && sendFeedback.response}
+							<div class="notice success" role="status">
+								<strong>Message sent</strong>
+								<p>
+									Message <code>#{sendFeedback.response.result.message_id}</code> was accepted for chat
+									<code>{sendFeedback.response.result.chat.id}</code>.
+								</p>
+							</div>
+						{:else if sendFeedback?.action === 'sendMessage' && sendFeedback.error}
+							<div class="notice error" role="alert">
+								<strong>Request failed</strong>
+								<p>{sendFeedback.error}</p>
+							</div>
+						{:else}
+							<div class="empty-response">
+								<code>&lbrace;&rbrace;</code>
+								<p>Send the request to inspect the response.</p>
+							</div>
+						{/if}
+
+						{#if sendFeedback?.action === 'sendMessage' && sendFeedback.response}
+							<details class="raw-response">
+								<summary>Raw JSON</summary>
+								<pre>{rawJson(sendFeedback.response)}</pre>
+							</details>
+						{/if}
+					</section>
 				</div>
-
-				<div class="field-group">
-					<div class="label-line">
-						<label for="messageText">Message</label>
-						<span class:over-limit={messageText.length > 4096}>{messageText.length.toLocaleString()} / 4,096</span>
-					</div>
-					<textarea
-						id="messageText"
-						name="text"
-						rows="7"
-						placeholder="Write a sample message…"
-						bind:value={messageText}
-						{@attach captureMessageTextInput}
-						aria-describedby="message-help message-error"
-						aria-invalid={sendFeedback?.action === 'sendMessage' && Boolean(sendFeedback.fieldErrors?.text)}
-					></textarea>
-					<p id="message-help" class="field-help">Sent as plain text without formatting or parse modes.</p>
-					{#if sendFeedback?.action === 'sendMessage' && sendFeedback.fieldErrors?.text}
-						<p id="message-error" class="field-error">{sendFeedback.fieldErrors.text}</p>
-					{/if}
-				</div>
-
-				<button class="button primary send-button" type="submit" disabled={sendPending}>
-					{#if sendPending}
-						<span class="spinner" aria-hidden="true"></span>
-						Sending message…
-					{:else}
-						Send message
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="m21 3-7.5 18-4.2-7.7L2 9l19-6Zm-9 9.8 2 3.6 3.7-8.9L8.4 10l3.6 2.1 4-4.2-4 4.9Z" />
-						</svg>
-					{/if}
-				</button>
-			</form>
-
-			<div class="result-region send-result" aria-live="polite">
-				{#if sendFeedback?.action === 'sendMessage' && sendFeedback.success && sendFeedback.response}
-					<div class="notice success">
-						<strong>Message sent</strong>
-						<span>
-							Telegram accepted message #{sendFeedback.response.result.message_id} for chat
-							{sendFeedback.response.result.chat.id}.
-						</span>
-					</div>
-				{:else if sendFeedback?.action === 'sendMessage' && sendFeedback.error}
-					<div class="notice error" role="alert">
-						<strong>Message not sent</strong>
-						<span>{sendFeedback.error}</span>
-					</div>
-				{/if}
-
-				{#if sendFeedback?.action === 'sendMessage' && sendFeedback.response}
-					<details class="raw-response">
-						<summary>View raw response <span>JSON</span></summary>
-						<pre>{rawJson(sendFeedback.response)}</pre>
-					</details>
-				{/if}
-			</div>
-		</section>
+			{/if}
+		</main>
 	</div>
-</main>
-
-<footer>
-	<span>Telegram API Playground</span>
-	<p>Built for focused, local bot development.</p>
-</footer>
+</div>
 
 <style>
 	:global(:root) {
-		--ink: #17222f;
-		--muted: #657180;
-		--line: #dce3e8;
-		--paper: #ffffff;
-		--canvas: #f3f6f8;
-		--telegram: #229ed9;
-		--telegram-dark: #1686c0;
-		--success: #16845b;
-		--danger: #b33b45;
+		--bg: #f6f7f9;
+		--surface: #ffffff;
+		--surface-muted: #f9fafb;
+		--border: #dfe3e8;
+		--border-strong: #cdd3da;
+		--text: #1d2733;
+		--text-muted: #697586;
+		--text-subtle: #8b95a3;
+		--accent: #168ac0;
+		--accent-soft: #e9f5fa;
+		--success: #16805a;
+		--success-soft: #edf8f3;
+		--danger: #b63d49;
+		--danger-soft: #fff1f2;
+		--warning: #795d17;
+		--warning-soft: #fff9e8;
 	}
 
-	.hero {
-		background:
-			radial-gradient(circle at 82% 16%, rgba(34, 158, 217, 0.2), transparent 27rem),
-			linear-gradient(135deg, #131e2a 0%, #1b2c3c 100%);
-		color: white;
-		padding: 0 5vw 5.5rem;
+	.app-shell {
+		min-height: 100vh;
+		background: var(--bg);
+		color: var(--text);
 	}
 
-	.nav {
+	.topbar {
 		display: flex;
+		height: 4rem;
 		align-items: center;
 		justify-content: space-between;
-		max-width: 1180px;
-		margin: 0 auto;
-		padding: 1.35rem 0;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		border-bottom: 1px solid var(--border);
+		background: var(--surface);
+		padding: 0 1.25rem;
 	}
 
-	.brand {
-		display: inline-flex;
+	.product-name {
+		display: flex;
 		align-items: center;
 		gap: 0.7rem;
-		color: white;
-		font-size: 0.95rem;
-		letter-spacing: -0.01em;
-		text-decoration: none;
 	}
 
-	.brand strong {
-		font-weight: 700;
-	}
-
-	.brand-mark {
+	.product-icon {
 		display: grid;
 		width: 2rem;
 		height: 2rem;
 		place-items: center;
-		border-radius: 50%;
-		background: var(--telegram);
+		border-radius: 0.45rem;
+		background: #229ed9;
 	}
 
-	.brand-mark svg {
+	.product-icon svg {
 		width: 1.25rem;
 		fill: white;
 	}
 
-	.version {
-		border: 1px solid rgba(255, 255, 255, 0.16);
-		border-radius: 999px;
-		padding: 0.4rem 0.75rem;
-		color: rgba(255, 255, 255, 0.7);
-		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 0.68rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.hero-content {
+	.product-name > div {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 20rem;
-		gap: 4rem;
-		align-items: end;
-		max-width: 1180px;
-		margin: 0 auto;
-		padding-top: 5.25rem;
+		gap: 0.1rem;
 	}
 
-	.eyebrow,
-	.section-kicker {
-		margin: 0 0 1rem;
-		font-size: 0.72rem;
-		font-weight: 750;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-	}
-
-	.eyebrow {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		color: #79d1f5;
-	}
-
-	.eyebrow span {
-		width: 1.4rem;
-		height: 1px;
-		background: currentColor;
-	}
-
-	h1 {
-		max-width: 780px;
-		margin: 0;
-		font-size: clamp(2.8rem, 6vw, 5.4rem);
-		font-weight: 760;
-		letter-spacing: -0.065em;
-		line-height: 0.98;
-	}
-
-	h1 em {
-		color: #74cef3;
-		font-family: Georgia, 'Times New Roman', serif;
-		font-weight: 400;
-	}
-
-	.hero-copy {
-		max-width: 600px;
-		margin: 1.75rem 0 0;
-		color: rgba(255, 255, 255, 0.67);
-		font-size: 1.05rem;
-		line-height: 1.7;
-	}
-
-	.hero-note {
-		display: flex;
-		gap: 0.9rem;
-		align-items: flex-start;
-		border-left: 1px solid rgba(255, 255, 255, 0.18);
-		padding-left: 1.3rem;
-	}
-
-	.hero-note svg {
-		width: 1.5rem;
-		flex: 0 0 auto;
-		fill: #70cef4;
-	}
-
-	.hero-note div {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.hero-note strong {
+	.product-name strong {
 		font-size: 0.86rem;
 	}
 
-	.hero-note span {
-		color: rgba(255, 255, 255, 0.55);
-		font-size: 0.75rem;
-		line-height: 1.55;
+	.product-name div span {
+		color: var(--text-subtle);
+		font-size: 0.67rem;
 	}
 
-	main {
-		max-width: 1180px;
-		margin: 0 auto;
-		padding: 4.5rem 2rem 6rem;
-	}
-
-	.workspace-heading {
-		display: flex;
-		justify-content: space-between;
-		gap: 2rem;
-		align-items: end;
-		margin-bottom: 2rem;
-	}
-
-	.section-kicker {
-		margin-bottom: 0.5rem;
-		color: var(--telegram-dark);
-	}
-
-	.workspace-heading h2 {
-		margin: 0;
-		color: var(--ink);
-		font-size: clamp(1.7rem, 3vw, 2.45rem);
-		letter-spacing: -0.04em;
-	}
-
-	.workspace-heading > p {
-		max-width: 390px;
-		margin: 0;
-		color: var(--muted);
-		font-size: 0.88rem;
-		line-height: 1.65;
-		text-align: right;
-	}
-
-	.method-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-		gap: 1.25rem;
-		align-items: start;
-	}
-
-	.method-card {
-		border: 1px solid var(--line);
-		border-radius: 1.1rem;
-		background: var(--paper);
-		box-shadow: 0 18px 50px rgba(34, 51, 66, 0.06);
-		overflow: hidden;
-	}
-
-	.identity-card,
-	.message-card {
-		padding: 1.6rem;
-	}
-
-	.card-topline {
+	.config-status {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 2rem;
-	}
-
-	.step-number {
-		color: #93a1ae;
-		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		gap: 0.45rem;
+		color: var(--text-muted);
 		font-size: 0.72rem;
 	}
 
-	.status-pill,
-	.scope-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		border-radius: 999px;
-		background: #f1f3f5;
-		padding: 0.4rem 0.68rem;
-		color: #6c7884;
-		font-size: 0.67rem;
-		font-weight: 700;
-	}
-
-	.status-pill > span {
-		width: 0.4rem;
-		height: 0.4rem;
+	.status-dot {
+		width: 0.45rem;
+		height: 0.45rem;
 		border-radius: 50%;
-		background: #a0a9b1;
+		background: #9ba4af;
 	}
 
-	.status-pill.ready {
-		background: #e9f7f1;
+	.config-status.configured {
 		color: var(--success);
 	}
 
-	.status-pill.ready > span {
-		background: #23a874;
-		box-shadow: 0 0 0 3px rgba(35, 168, 116, 0.12);
+	.config-status.configured .status-dot {
+		background: #20a071;
 	}
 
-	.scope-pill {
-		background: #eaf6fb;
-		color: var(--telegram-dark);
+	.app-body {
+		display: grid;
+		min-height: calc(100vh - 4rem);
+		grid-template-columns: 15rem minmax(0, 1fr);
 	}
 
-	.method-heading {
-		margin-bottom: 1.6rem;
-	}
-
-	.method-name {
+	.sidebar {
 		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		margin-bottom: 1rem;
+		flex-direction: column;
+		justify-content: space-between;
+		border-right: 1px solid var(--border);
+		background: var(--surface);
+		padding: 1.25rem 0.8rem;
 	}
 
-	.method-name span {
-		color: #98a2ac;
-		font-size: 0.67rem;
+	.method-group + .method-group {
+		margin-top: 1.35rem;
+	}
+
+	.method-group > p,
+	.sidebar-footer > span {
+		margin: 0 0 0.45rem;
+		padding: 0 0.6rem;
+		color: var(--text-subtle);
+		font-size: 0.62rem;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 	}
 
-	.method-name code {
-		border-radius: 0.32rem;
-		background: #eaf6fb;
-		padding: 0.22rem 0.45rem;
-		color: #147eaf;
+	.method-list {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.method-list button {
+		display: grid;
+		gap: 0.18rem;
+		width: 100%;
+		border: 0;
+		border-radius: 0.42rem;
+		background: transparent;
+		padding: 0.65rem 0.7rem;
+		color: var(--text-muted);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.method-list button:hover {
+		background: var(--surface-muted);
+		color: var(--text);
+	}
+
+	.method-list button.active {
+		background: var(--accent-soft);
+		color: #116f9a;
+	}
+
+	.method-list button span {
+		font-size: 0.78rem;
+		font-weight: 650;
+	}
+
+	.method-list button code {
+		color: inherit;
+		font-size: 0.63rem;
+		opacity: 0.78;
+	}
+
+	.sidebar-footer {
+		display: grid;
+		gap: 0.35rem;
+		border-top: 1px solid var(--border);
+		padding: 1rem 0.2rem 0;
+	}
+
+	.sidebar-footer > span {
+		padding: 0;
+	}
+
+	.sidebar-footer code {
+		color: var(--text-muted);
+		font-size: 0.65rem;
+	}
+
+	main {
+		min-width: 0;
+		padding: 2rem clamp(1.25rem, 3vw, 3rem) 3rem;
+	}
+
+	.method-header {
+		display: flex;
+		align-items: end;
+		justify-content: space-between;
+		gap: 2rem;
+		max-width: 1120px;
+		margin: 0 auto 1.5rem;
+	}
+
+	.method-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		margin-bottom: 0.55rem;
+	}
+
+	.method-meta span {
+		border-radius: 0.25rem;
+		background: #e9f7f1;
+		padding: 0.2rem 0.35rem;
+		color: var(--success);
+		font-size: 0.6rem;
+		font-weight: 800;
+	}
+
+	.method-meta code {
+		color: var(--text-muted);
+		font-size: 0.72rem;
+	}
+
+	.method-header h1 {
+		margin: 0;
+		font-size: 1.65rem;
+		letter-spacing: -0.025em;
+	}
+
+	.method-header p {
+		margin: 0.4rem 0 0;
+		color: var(--text-muted);
+		font-size: 0.8rem;
+	}
+
+	.method-header > a {
+		flex: 0 0 auto;
+		color: var(--accent);
+		font-size: 0.72rem;
+		font-weight: 650;
+		text-decoration: none;
+	}
+
+	.method-header > a:hover {
+		text-decoration: underline;
+	}
+
+	.workspace {
+		display: grid;
+		max-width: 1120px;
+		margin: 0 auto;
+		grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.85fr);
+		gap: 1rem;
+		align-items: start;
+	}
+
+	.request-panel,
+	.response-panel {
+		border: 1px solid var(--border);
+		border-radius: 0.55rem;
+		background: var(--surface);
+		box-shadow: 0 1px 2px rgba(20, 31, 43, 0.03);
+	}
+
+	.request-panel {
+		padding: 1.25rem;
+	}
+
+	.response-panel {
+		overflow: hidden;
+	}
+
+	.panel-header {
+		display: flex;
+		min-height: 2.8rem;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		border-bottom: 1px solid var(--border);
+		margin: -1.25rem -1.25rem 1.25rem;
+		padding: 0.85rem 1.25rem;
+	}
+
+	.response-header {
+		align-items: center;
+		margin: 0;
+		background: var(--surface-muted);
+	}
+
+	.panel-header h2 {
+		margin: 0;
+		font-size: 0.82rem;
+	}
+
+	.panel-header p {
+		margin: 0.2rem 0 0;
+		color: var(--text-subtle);
+		font-size: 0.65rem;
+	}
+
+	.response-code {
+		border-radius: 999px;
+		background: var(--danger-soft);
+		padding: 0.25rem 0.5rem;
+		color: var(--danger);
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.59rem;
+		font-weight: 700;
+	}
+
+	.response-code.success-code {
+		background: var(--success-soft);
+		color: var(--success);
+	}
+
+	.no-parameters {
+		display: flex;
+		align-items: center;
+		gap: 0.7rem;
+		border: 1px dashed var(--border-strong);
+		border-radius: 0.42rem;
+		background: var(--surface-muted);
+		padding: 1rem;
+		color: var(--text-muted);
+	}
+
+	.no-parameters span {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.9rem;
+	}
+
+	.no-parameters p {
+		margin: 0;
+		font-size: 0.72rem;
+	}
+
+	.request-panel form {
+		margin-top: 1.25rem;
+	}
+
+	.message-form {
+		display: grid;
+		gap: 1.15rem;
+	}
+
+	.field-group {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.label-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.label-row label {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.72rem;
+		font-weight: 700;
+	}
+
+	.label-row span {
+		color: var(--text-subtle);
+		font-size: 0.61rem;
+	}
+
+	.label-row span.over-limit {
+		color: var(--danger);
+	}
+
+	input,
+	textarea {
+		width: 100%;
+		border: 1px solid var(--border-strong);
+		border-radius: 0.4rem;
+		background: var(--surface);
+		padding: 0.7rem 0.75rem;
+		color: var(--text);
+		font: inherit;
 		font-size: 0.78rem;
 	}
 
-	.method-heading h3 {
+	textarea {
+		min-height: 9rem;
+		line-height: 1.55;
+		resize: vertical;
+	}
+
+	input:focus,
+	textarea:focus {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px rgba(22, 138, 192, 0.1);
+		outline: none;
+	}
+
+	input[aria-invalid='true'],
+	textarea[aria-invalid='true'] {
+		border-color: #d46a74;
+	}
+
+	.field-help,
+	.field-error {
 		margin: 0;
-		color: var(--ink);
-		font-size: 1.55rem;
-		letter-spacing: -0.035em;
+		font-size: 0.63rem;
+		line-height: 1.4;
 	}
 
-	.method-heading p {
-		margin: 0.65rem 0 0;
-		color: var(--muted);
-		font-size: 0.86rem;
-		line-height: 1.6;
+	.field-help {
+		color: var(--text-subtle);
 	}
 
-	.button {
+	.field-error {
+		color: var(--danger);
+		font-weight: 650;
+	}
+
+	.primary-button {
 		display: inline-flex;
+		min-height: 2.35rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.6rem;
-		min-height: 2.85rem;
-		border: 0;
-		border-radius: 0.65rem;
-		padding: 0.75rem 1.05rem;
-		font: inherit;
-		font-size: 0.82rem;
-		font-weight: 750;
-		cursor: pointer;
-		transition:
-			transform 120ms ease,
-			background 120ms ease,
-			box-shadow 120ms ease;
-	}
-
-	.button.primary {
-		background: var(--telegram);
+		gap: 0.5rem;
+		border: 1px solid #117dad;
+		border-radius: 0.4rem;
+		background: var(--accent);
+		padding: 0.55rem 0.85rem;
 		color: white;
-		box-shadow: 0 8px 20px rgba(34, 158, 217, 0.2);
+		font: inherit;
+		font-size: 0.72rem;
+		font-weight: 700;
+		cursor: pointer;
 	}
 
-	.button.primary:hover:not(:disabled) {
-		transform: translateY(-1px);
-		background: var(--telegram-dark);
-		box-shadow: 0 10px 24px rgba(34, 158, 217, 0.28);
+	.primary-button:hover:not(:disabled) {
+		background: #117dad;
 	}
 
-	.button:focus-visible,
-	input:focus-visible,
-	textarea:focus-visible,
-	summary:focus-visible,
-	a:focus-visible {
-		outline: 3px solid rgba(34, 158, 217, 0.28);
-		outline-offset: 2px;
-	}
-
-	.button:disabled {
+	.primary-button:disabled {
 		cursor: wait;
-		opacity: 0.68;
-	}
-
-	.button svg {
-		width: 1.05rem;
-		fill: currentColor;
+		opacity: 0.65;
 	}
 
 	.spinner {
-		width: 0.9rem;
-		height: 0.9rem;
+		width: 0.75rem;
+		height: 0.75rem;
 		border: 2px solid rgba(255, 255, 255, 0.45);
 		border-top-color: white;
 		border-radius: 50%;
@@ -700,360 +828,231 @@
 		}
 	}
 
-	.result-region {
-		margin-top: 1.4rem;
-	}
-
-	.empty-result {
-		display: flex;
-		align-items: center;
-		gap: 0.7rem;
-		border: 1px dashed #d8dfe4;
-		border-radius: 0.75rem;
-		padding: 1rem;
-		color: #8a96a1;
-	}
-
-	.empty-result span {
+	.empty-response {
 		display: grid;
-		width: 1.8rem;
-		height: 1.8rem;
+		min-height: 15rem;
 		place-items: center;
-		border-radius: 50%;
-		background: #f0f3f5;
+		align-content: center;
+		gap: 0.6rem;
+		padding: 1.25rem;
+		color: var(--text-subtle);
+		text-align: center;
 	}
 
-	.empty-result p {
+	.empty-response code {
+		font-size: 1.1rem;
+	}
+
+	.empty-response p {
 		margin: 0;
-		font-size: 0.76rem;
+		font-size: 0.7rem;
 	}
 
 	.notice {
-		display: grid;
-		gap: 0.3rem;
-		border-radius: 0.72rem;
-		padding: 0.95rem 1rem;
-		font-size: 0.78rem;
+		margin: 1rem;
+		border: 1px solid;
+		border-radius: 0.4rem;
+		padding: 0.8rem;
+	}
+
+	.notice strong {
+		font-size: 0.74rem;
+	}
+
+	.notice p {
+		margin: 0.3rem 0 0;
+		font-size: 0.68rem;
 		line-height: 1.5;
 	}
 
 	.notice.warning {
-		border: 1px solid #ead9ae;
-		background: #fff9e9;
-		color: #705b24;
+		border-color: #ead9a6;
+		background: var(--warning-soft);
+		color: var(--warning);
 	}
 
 	.notice.error {
-		border: 1px solid #f0cbd0;
-		background: #fff2f3;
-		color: #8d3039;
+		border-color: #efc8cd;
+		background: var(--danger-soft);
+		color: var(--danger);
 	}
 
 	.notice.success {
-		border: 1px solid #bfe4d6;
-		background: #effaf6;
-		color: #136947;
+		border-color: #bde1d3;
+		background: var(--success-soft);
+		color: var(--success);
 	}
 
-	.notice code {
-		font-size: 0.72rem;
-	}
-
-	.bot-profile {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		border: 1px solid #cce6dc;
-		border-radius: 0.8rem;
-		background: #f5fbf8;
+	.response-summary {
 		padding: 1rem;
 	}
 
-	.bot-avatar {
-		display: grid;
-		width: 3.2rem;
-		height: 3.2rem;
-		flex: 0 0 auto;
-		place-items: center;
-		border-radius: 50%;
-		background: linear-gradient(135deg, #26a9e6, #1786bf);
-		color: white;
-		font-size: 1.25rem;
-		font-weight: 800;
-		box-shadow: 0 8px 20px rgba(34, 158, 217, 0.2);
-	}
-
-	.bot-details {
-		display: flex;
-		min-width: 0;
-		flex-direction: column;
-		align-items: flex-start;
-	}
-
-	.success-label {
-		margin-bottom: 0.25rem;
-		color: var(--success);
-		font-size: 0.65rem;
-		font-weight: 750;
-		letter-spacing: 0.03em;
-		text-transform: uppercase;
-	}
-
-	.bot-details strong {
-		color: var(--ink);
-	}
-
-	.bot-details a {
-		color: var(--telegram-dark);
-		font-size: 0.79rem;
-		text-decoration: none;
-	}
-
-	.bot-details small {
-		margin-top: 0.35rem;
-		color: #87929d;
-		font-size: 0.67rem;
-	}
-
-	.raw-response {
-		margin-top: 0.8rem;
-		border: 1px solid var(--line);
-		border-radius: 0.7rem;
+	.response-summary dl {
+		margin: 0;
+		border: 1px solid var(--border);
+		border-radius: 0.4rem;
 		overflow: hidden;
 	}
 
+	.response-summary dl > div {
+		display: grid;
+		grid-template-columns: 7rem 1fr;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.response-summary dl > div:last-child {
+		border-bottom: 0;
+	}
+
+	.response-summary dt,
+	.response-summary dd {
+		margin: 0;
+		padding: 0.6rem 0.7rem;
+		font-size: 0.68rem;
+	}
+
+	.response-summary dt {
+		background: var(--surface-muted);
+		color: var(--text-muted);
+		font-weight: 650;
+	}
+
+	.response-summary dd {
+		border-left: 1px solid var(--border);
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		word-break: break-word;
+	}
+
+	.raw-response {
+		border-top: 1px solid var(--border);
+	}
+
 	.raw-response summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.8rem 0.9rem;
-		color: #52606c;
-		font-size: 0.72rem;
+		padding: 0.75rem 1rem;
+		color: var(--text-muted);
+		font-size: 0.68rem;
 		font-weight: 650;
 		cursor: pointer;
-		list-style: none;
-	}
-
-	.raw-response summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.raw-response summary span {
-		color: #9aa4ad;
-		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 0.62rem;
 	}
 
 	.raw-response pre {
-		max-height: 20rem;
+		max-height: 24rem;
 		margin: 0;
 		overflow: auto;
-		border-top: 1px solid var(--line);
-		background: #17222f;
+		border-top: 1px solid var(--border);
+		background: #19232e;
 		padding: 1rem;
-		color: #dce8ef;
-		font-size: 0.68rem;
+		color: #dae5ed;
+		font-size: 0.65rem;
 		line-height: 1.6;
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
 
-	.message-form {
-		display: grid;
-		gap: 1.2rem;
-	}
-
-	.field-group {
-		display: grid;
-		gap: 0.5rem;
-	}
-
-	.label-line {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.label-line label {
-		color: var(--ink);
-		font-size: 0.78rem;
-		font-weight: 750;
-	}
-
-	.label-line span {
-		color: #97a2ac;
-		font-size: 0.65rem;
-	}
-
-	.label-line span.over-limit {
-		color: var(--danger);
-		font-weight: 750;
-	}
-
-	input,
-	textarea {
-		width: 100%;
-		border: 1px solid #ced7dd;
-		border-radius: 0.68rem;
-		background: #fbfcfd;
-		padding: 0.82rem 0.9rem;
-		color: var(--ink);
-		font: inherit;
-		font-size: 0.84rem;
-		transition:
-			border-color 120ms ease,
-			background 120ms ease,
-			box-shadow 120ms ease;
-	}
-
-	textarea {
-		min-height: 9.5rem;
-		line-height: 1.55;
-		resize: vertical;
-	}
-
-	input:hover,
-	textarea:hover {
-		border-color: #aebbc4;
-	}
-
-	input:focus,
-	textarea:focus {
-		border-color: var(--telegram);
-		background: white;
-		box-shadow: 0 0 0 3px rgba(34, 158, 217, 0.09);
-		outline: none;
-	}
-
-	input[aria-invalid='true'],
-	textarea[aria-invalid='true'] {
-		border-color: #cf6971;
-	}
-
-	input::placeholder,
-	textarea::placeholder {
-		color: #a7b0b8;
-	}
-
-	.field-help,
-	.field-error {
-		margin: 0;
-		font-size: 0.67rem;
-		line-height: 1.45;
-	}
-
-	.field-help {
-		color: #89949e;
-	}
-
-	.field-error {
-		color: var(--danger);
-		font-weight: 650;
-	}
-
-	.send-button {
-		width: 100%;
-		margin-top: 0.1rem;
-	}
-
-	.send-result:empty {
-		display: none;
-	}
-
-	footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		max-width: 1180px;
-		margin: 0 auto;
-		border-top: 1px solid var(--line);
-		padding: 1.6rem 2rem 2.5rem;
-		color: #8a96a0;
-		font-size: 0.7rem;
-	}
-
-	footer span {
-		color: #61707c;
-		font-weight: 750;
-	}
-
-	footer p {
-		margin: 0;
+	button:focus-visible,
+	a:focus-visible,
+	summary:focus-visible {
+		outline: 3px solid rgba(22, 138, 192, 0.2);
+		outline-offset: 2px;
 	}
 
 	@media (max-width: 850px) {
-		.hero {
-			padding-bottom: 4rem;
+		.app-body {
+			display: block;
 		}
 
-		.hero-content {
+		.sidebar {
+			display: block;
+			border-right: 0;
+			border-bottom: 1px solid var(--border);
+			padding: 0.75rem 1rem;
+			overflow-x: auto;
+		}
+
+		.sidebar nav {
+			display: flex;
+			gap: 1.5rem;
+			width: max-content;
+		}
+
+		.method-group,
+		.method-group + .method-group {
+			margin: 0;
+		}
+
+		.method-list {
+			display: flex;
+		}
+
+		.method-list button {
+			min-width: 9rem;
+		}
+
+		.sidebar-footer {
+			display: none;
+		}
+
+		.workspace {
 			grid-template-columns: 1fr;
-			gap: 2.4rem;
-			padding-top: 4rem;
-		}
-
-		.hero-note {
-			max-width: 24rem;
-		}
-
-		.method-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.workspace-heading {
-			align-items: flex-start;
-			flex-direction: column;
-		}
-
-		.workspace-heading > p {
-			text-align: left;
 		}
 	}
 
 	@media (max-width: 560px) {
-		.hero {
-			padding-right: 1.25rem;
-			padding-left: 1.25rem;
+		.topbar {
+			height: 3.6rem;
+			padding: 0 0.9rem;
 		}
 
-		.version {
+		.product-name div span {
 			display: none;
 		}
 
-		.hero-content {
-			padding-top: 3.3rem;
+		.config-status {
+			font-size: 0;
 		}
 
-		h1 {
-			font-size: 2.75rem;
+		.config-status::after {
+			content: 'Token';
+			font-size: 0.68rem;
 		}
 
 		main {
-			padding: 3.5rem 1rem 4rem;
+			padding: 1.3rem 0.9rem 2rem;
 		}
 
-		.identity-card,
-		.message-card {
-			padding: 1.2rem;
-		}
-
-		footer {
+		.method-header {
 			align-items: flex-start;
 			flex-direction: column;
-			gap: 0.35rem;
-			padding-right: 1.25rem;
-			padding-left: 1.25rem;
+			gap: 0.65rem;
+		}
+
+		.method-header h1 {
+			font-size: 1.4rem;
+		}
+
+		.request-panel {
+			padding: 1rem;
+		}
+
+		.panel-header {
+			margin: -1rem -1rem 1rem;
+			padding: 0.75rem 1rem;
+		}
+
+		.response-header {
+			margin: 0;
+		}
+
+		.label-row {
+			align-items: flex-start;
+			flex-direction: column;
+			gap: 0.25rem;
 		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		*,
-		*::before,
-		*::after {
-			scroll-behavior: auto !important;
-			transition-duration: 0.01ms !important;
-			animation-duration: 0.01ms !important;
-			animation-iteration-count: 1 !important;
+		.spinner {
+			animation: none;
 		}
 	}
 </style>
