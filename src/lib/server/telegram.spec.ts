@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TELEGRAM_MESSAGE_MAX_LENGTH, validateMessage } from './message-validation';
+import { prepareSendPhotoRequest } from './methods/photo';
 import { TelegramClient, TelegramClientError, getPublicTelegramError } from './telegram';
 
 const TOKEN = '123456789:test-token';
@@ -47,6 +48,51 @@ describe('TelegramClient', () => {
 				body: JSON.stringify({ chat_id: '-100123', text: 'Hello from the playground' })
 			})
 		);
+	});
+
+	it('sends prepared media as JSON without changing the payload', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 8, date: 1, chat: { id: 123, type: 'private' }, photo: [] }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const request = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'reference', value: 'file-id' },
+			hasSpoiler: true
+		});
+
+		await client.sendPhoto(request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/sendPhoto`,
+			expect.objectContaining({
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ chat_id: '123', photo: 'file-id', has_spoiler: true })
+			})
+		);
+	});
+
+	it('lets the runtime set the multipart boundary for uploads', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 9, date: 1, chat: { id: 123, type: 'private' }, photo: [] }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const request = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'upload', file: new Blob(['image'], { type: 'image/jpeg' }) }
+		});
+
+		await client.sendPhoto(request);
+
+		const options = fetcher.mock.calls[0]?.[1];
+		expect(options?.body).toBeInstanceOf(FormData);
+		expect(options?.headers).toBeUndefined();
 	});
 
 	it('surfaces Telegram API failures without leaking the token', async () => {

@@ -6,10 +6,17 @@ import type {
 	TelegramMessage,
 	TelegramUser
 } from '$lib/telegram';
+import type { PreparedSendDocumentRequest } from './methods/document';
+import type { PreparedSendPhotoRequest, TelegramPhotoMessage } from './methods/photo';
+import type { PreparedSendVoiceRequest, TelegramVoiceMessage } from './methods/voice';
 
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org';
 
-type TelegramMethod = 'getMe' | 'sendMessage';
+type TelegramMethod = 'getMe' | 'sendMessage' | 'sendPhoto' | 'sendDocument' | 'sendVoice';
+type PreparedMediaRequest =
+	| PreparedSendPhotoRequest
+	| PreparedSendDocumentRequest
+	| PreparedSendVoiceRequest;
 
 export class TelegramClientError extends Error {
 	readonly response?: TelegramApiFailure;
@@ -49,14 +56,31 @@ export class TelegramClient {
 		});
 	}
 
-	async #request<T>(method: TelegramMethod, body?: Record<string, unknown>) {
+	sendPhoto(request: PreparedSendPhotoRequest): Promise<TelegramApiSuccess<TelegramPhotoMessage>> {
+		return this.#sendPrepared<TelegramPhotoMessage>(request);
+	}
+
+	sendDocument(request: PreparedSendDocumentRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendVoice(request: PreparedSendVoiceRequest): Promise<TelegramApiSuccess<TelegramVoiceMessage>> {
+		return this.#sendPrepared<TelegramVoiceMessage>(request);
+	}
+
+	#sendPrepared<T>(request: PreparedMediaRequest) {
+		return this.#request<T>(request.method, request.body);
+	}
+
+	async #request<T>(method: TelegramMethod, body?: object | FormData) {
 		let response: Response;
+		const isMultipart = body instanceof FormData;
 
 		try {
 			response = await this.#fetch(`${TELEGRAM_API_BASE_URL}/bot${this.#token}/${method}`, {
 				method: 'POST',
-				headers: body ? { 'content-type': 'application/json' } : undefined,
-				body: body ? JSON.stringify(body) : undefined
+				headers: body && !isMultipart ? { 'content-type': 'application/json' } : undefined,
+				body: isMultipart ? body : body ? JSON.stringify(body) : undefined
 			});
 		} catch {
 			throw new TelegramClientError(
