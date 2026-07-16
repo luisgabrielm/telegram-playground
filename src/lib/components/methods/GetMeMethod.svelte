@@ -5,6 +5,7 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
+	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
@@ -59,6 +60,7 @@
 				<p>No request body required</p>
 			</div>
 			<form method="POST" action="?/getMe" use:enhance={enhanceForm} aria-busy={pending}>
+				<PayloadPreview titleId="get-me-payload-title" payload={{}} />
 				<SubmitButton {pending} />
 			</form>
 		</RequestPanel>

@@ -7,6 +7,12 @@
    - Extract the shared request layout, submit state, validation display, response status, and raw JSON inspector.
    - Preserve the current `getMe` and `sendMessage` behavior while making each new method additive.
 
+2. [x] **Preview and copy request payloads**
+   - Show the payload that will be sent for every method so its structure is easy to inspect.
+   - Keep the preview synchronized with the current form values before submission.
+   - Provide a one-click copy action with clear success and failure feedback.
+   - Represent multipart uploads safely with file metadata instead of reading or exposing file contents.
+
 ## Message types
 
 1. [x] **Text message — `sendMessage`**

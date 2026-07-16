@@ -7,10 +7,12 @@
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
+	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import type { MethodComponentProps, SendMessageFeedback } from '$lib/playground/types';
+	import { buildSendMessagePayload } from '$lib/playground/payload';
 	import type { TelegramApiFailure, TelegramApiSuccess, TelegramMessage } from '$lib/telegram';
 
 	let { initialFeedback }: MethodComponentProps = $props();
@@ -24,6 +26,7 @@
 	let chatIdInput: HTMLInputElement | undefined;
 	let messageTextInput: HTMLTextAreaElement | undefined;
 	const sentMessage = $derived(getResult(feedback?.response));
+	const requestPayload = $derived(buildSendMessagePayload(chatId, messageText));
 
 	const captureChatIdInput: Attachment<HTMLInputElement> = (element) => {
 		chatIdInput = element;
@@ -120,6 +123,7 @@
 						></textarea>
 					{/snippet}
 				</FormField>
+				<PayloadPreview titleId="send-message-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />
 			</form>
 		</RequestPanel>

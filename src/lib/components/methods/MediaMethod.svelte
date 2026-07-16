@@ -6,6 +6,7 @@
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
+	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
@@ -14,6 +15,7 @@
 		MediaFeedback,
 		MethodComponentProps
 	} from '$lib/playground/types';
+	import { buildMediaPayload } from '$lib/playground/payload';
 
 	type Props = MethodComponentProps & {
 		action: MediaAction;
@@ -46,12 +48,27 @@
 	let feedback = $state<MediaFeedback | null>(initial);
 	let chatId = $state(initial?.fields?.chatId ?? '');
 	let caption = $state(initial?.fields?.caption ?? '');
-	let sourceType = $state(initial?.fields?.sourceType === 'upload' ? 'upload' : 'reference');
+	let sourceType: 'reference' | 'upload' = $state(
+		initial?.fields?.sourceType === 'upload' ? 'upload' : 'reference'
+	);
 	let mediaReference = $state(initial?.fields?.mediaReference ?? '');
 	let duration = $state(initial?.fields?.duration ?? '');
 	let hasSpoiler = $state(initial?.fields?.hasSpoiler === 'true');
+	let mediaFile = $state<File | null>(null);
 	const sentMessage = $derived(messageResult(feedback?.response));
 	const mediaError = $derived(feedback?.fieldErrors?.[mediaName]);
+	const requestPreview = $derived(
+		buildMediaPayload({
+			chatId,
+			mediaName,
+			sourceType,
+			mediaReference,
+			file: mediaFile,
+			caption,
+			duration: showDuration ? duration : undefined,
+			hasSpoiler: showSpoiler ? hasSpoiler : undefined
+		})
+	);
 
 	const enhanceForm: SubmitFunction = () => {
 		pending = true;
@@ -162,6 +179,7 @@
 								name={`${mediaName}File`}
 								type="file"
 								{accept}
+								onchange={(event) => (mediaFile = event.currentTarget.files?.[0] ?? null)}
 								aria-describedby={describedBy}
 								aria-invalid={invalid}
 							/>
@@ -219,6 +237,11 @@
 					</label>
 				{/if}
 
+				<PayloadPreview
+					titleId={`${action}-payload-title`}
+					payload={requestPreview.payload}
+					encoding={requestPreview.encoding}
+				/>
 				<SubmitButton {pending} />
 			</form>
 		</RequestPanel>
