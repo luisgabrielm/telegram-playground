@@ -10,6 +10,7 @@
 	let clearing = $state(false);
 	let error = $state<string | null>(null);
 	let copyStatus = $state<'idle' | 'copied' | 'error'>('idle');
+	let unreadUpdateIds = $state<number[]>([]);
 
 	const selectedEntry = $derived(
 		entries.find((entry) => entry.updateId === selectedUpdateId) ?? null
@@ -34,6 +35,18 @@
 			if (!response.ok) throw new Error('The update history request failed.');
 
 			const data = (await response.json()) as { entries: UpdateEntry[] };
+			const previousUpdateIds = new Set(entries.map((entry) => entry.updateId));
+			const currentUpdateIds = new Set(data.entries.map((entry) => entry.updateId));
+			const nextUnreadUpdateIds = unreadUpdateIds.filter((updateId) =>
+				currentUpdateIds.has(updateId)
+			);
+
+			if (!loading) {
+				for (const entry of data.entries) {
+					if (!previousUpdateIds.has(entry.updateId)) nextUnreadUpdateIds.push(entry.updateId);
+				}
+			}
+
 			entries = data.entries;
 			error = null;
 
@@ -43,6 +56,10 @@
 			) {
 				selectedUpdateId = entries[0]?.updateId ?? null;
 			}
+
+			unreadUpdateIds = [...new Set(nextUnreadUpdateIds)].filter(
+				(updateId) => updateId !== selectedUpdateId
+			);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not load received updates.';
 		} finally {
@@ -61,6 +78,7 @@
 
 			entries = [];
 			selectedUpdateId = null;
+			unreadUpdateIds = [];
 			error = null;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not clear received updates.';
@@ -112,6 +130,12 @@
 		return getTelegramUpdateType(entry.payload).replaceAll('_', ' ');
 	}
 
+	function selectUpdate(updateId: number) {
+		selectedUpdateId = updateId;
+		unreadUpdateIds = unreadUpdateIds.filter((id) => id !== updateId);
+		copyStatus = 'idle';
+	}
+
 	function formatReceivedAt(value: string) {
 		return new Intl.DateTimeFormat(undefined, {
 			year: 'numeric',
@@ -156,12 +180,14 @@
 					type="button"
 					class:active={selectedUpdateId === entry.updateId}
 					aria-pressed={selectedUpdateId === entry.updateId}
-					onclick={() => {
-						selectedUpdateId = entry.updateId;
-						copyStatus = 'idle';
-					}}
+					onclick={() => selectUpdate(entry.updateId)}
 				>
-					<span class="update-type">{readableType(entry)}</span>
+					<span class="update-heading">
+						<span class="update-type">{readableType(entry)}</span>
+						{#if unreadUpdateIds.includes(entry.updateId)}
+							<span class="unread-indicator"><span class="sr-only">Unread</span></span>
+						{/if}
+					</span>
 					<code>update_id: {entry.updateId}</code>
 					<time datetime={entry.receivedAt}>{formatReceivedAt(entry.receivedAt)}</time>
 				</button>
@@ -320,11 +346,36 @@
 		box-shadow: inset 3px 0 var(--accent);
 	}
 
+	.update-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
 	.update-type {
 		color: var(--text);
 		font-size: 0.72rem;
 		font-weight: 700;
 		text-transform: capitalize;
+	}
+
+	.unread-indicator {
+		width: 0.42rem;
+		height: 0.42rem;
+		flex: 0 0 auto;
+		border-radius: 50%;
+		background: var(--accent);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		clip-path: inset(50%);
 	}
 
 	.update-list code,
