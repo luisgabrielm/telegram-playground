@@ -4,6 +4,9 @@ import adapter from '@sveltejs/adapter-auto';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	server: {
+		allowedHosts: ['noted-beloved-monkfish.ngrok-free.app']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
