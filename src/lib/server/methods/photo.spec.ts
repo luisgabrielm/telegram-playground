@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import {
 	SendPhotoValidationError,
 	TELEGRAM_PHOTO_CAPTION_MAX_LENGTH,
@@ -112,6 +113,30 @@ describe('prepareSendPhotoRequest', () => {
 		expect(uploaded).toBeInstanceOf(File);
 		expect((uploaded as File).name).toBe('sample.png');
 		expect((uploaded as File).type).toBe('image/png');
+	});
+
+	it('includes reply markup in JSON and multipart requests', () => {
+		const replyMarkup: TelegramReplyMarkup = {
+			inline_keyboard: [[{ text: 'Copy', copy_text: { text: 'value' } }]]
+		};
+		const jsonRequest = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'reference', value: 'file-id' },
+			replyMarkup
+		});
+		const multipartRequest = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'upload', file: new Blob(['image'], { type: 'image/png' }) },
+			replyMarkup
+		});
+
+		expect(jsonRequest.encoding).toBe('json');
+		if (jsonRequest.encoding !== 'json') throw new Error('Expected a JSON request');
+		expect(jsonRequest.body.reply_markup).toBe(replyMarkup);
+
+		expect(multipartRequest.encoding).toBe('multipart');
+		if (multipartRequest.encoding !== 'multipart') throw new Error('Expected multipart');
+		expect(multipartRequest.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
 	});
 
 	it('omits a blank optional caption', () => {

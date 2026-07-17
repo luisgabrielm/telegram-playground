@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import { TELEGRAM_MESSAGE_MAX_LENGTH, validateMessage } from './message-validation';
 import { prepareSendPhotoRequest } from './methods/photo';
+import { prepareSendDice } from './methods/dice';
+import { prepareSendMediaGroup } from './methods/media-group';
+import { prepareSendPoll } from './methods/poll';
 import { TelegramClient, TelegramClientError, getPublicTelegramError } from './telegram';
 
 const TOKEN = '123456789:test-token';
@@ -50,6 +54,28 @@ describe('TelegramClient', () => {
 		);
 	});
 
+	it('includes reply markup in a text message payload', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 8, date: 1, chat: { id: 123, type: 'private' }, text: 'Choose' }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const replyMarkup: TelegramReplyMarkup = {
+			inline_keyboard: [[{ text: 'Open', url: 'https://example.com' }]]
+		};
+
+		await client.sendMessage('123', 'Choose', replyMarkup);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/sendMessage`,
+			expect.objectContaining({
+				body: JSON.stringify({ chat_id: '123', text: 'Choose', reply_markup: replyMarkup })
+			})
+		);
+	});
+
 	it('sends prepared media as JSON without changing the payload', async () => {
 		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
 			jsonResponse({
@@ -91,6 +117,91 @@ describe('TelegramClient', () => {
 		await client.sendPhoto(request);
 
 		const options = fetcher.mock.calls[0]?.[1];
+		expect(options?.body).toBeInstanceOf(FormData);
+		expect(options?.headers).toBeUndefined();
+	});
+
+	it('sends prepared dice payloads', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 10, date: 1, chat: { id: 123, type: 'private' } }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const prepared = prepareSendDice({ chatId: '123', emoji: '🎯' });
+		if (!prepared.ok) throw new Error('Expected a prepared request');
+
+		await client.sendDice(prepared.request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/sendDice`,
+			expect.objectContaining({ body: JSON.stringify({ chat_id: '123', emoji: '🎯' }) })
+		);
+	});
+
+	it('sends prepared quiz poll payloads', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 12, date: 1, chat: { id: 123, type: 'private' } }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const prepared = prepareSendPoll({
+			chatId: '123',
+			question: 'Pick one',
+			options: ['A', 'B'],
+			type: 'quiz',
+			isAnonymous: true,
+			allowsMultipleAnswers: false,
+			correctOptionIds: [1]
+		});
+		if (!prepared.ok) throw new Error('Expected a prepared request');
+
+		await client.sendPoll(prepared.request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/sendPoll`,
+			expect.objectContaining({
+				body: JSON.stringify({
+					chat_id: '123',
+					question: 'Pick one',
+					options: [{ text: 'A' }, { text: 'B' }],
+					type: 'quiz',
+					is_anonymous: true,
+					correct_option_ids: [1]
+				})
+			})
+		);
+	});
+
+	it('sends prepared media groups as multipart when an item is uploaded', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: [{ message_id: 11, date: 1, chat: { id: 123, type: 'private' } }]
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const prepared = prepareSendMediaGroup({
+			chatId: '123',
+			items: [
+				{ type: 'photo', source: { kind: 'reference', value: 'photo-id' } },
+				{
+					type: 'video',
+					source: { kind: 'upload', file: new Blob(['video'], { type: 'video/mp4' }) }
+				}
+			]
+		});
+		if (!prepared.ok) throw new Error('Expected a prepared request');
+
+		await client.sendMediaGroup(prepared.request);
+
+		const options = fetcher.mock.calls[0]?.[1];
+		expect(fetcher.mock.calls[0]?.[0]).toBe(
+			`https://api.telegram.org/bot${TOKEN}/sendMediaGroup`
+		);
 		expect(options?.body).toBeInstanceOf(FormData);
 		expect(options?.headers).toBeUndefined();
 	});

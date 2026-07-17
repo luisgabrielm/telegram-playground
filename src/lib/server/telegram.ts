@@ -6,17 +6,33 @@ import type {
 	TelegramMessage,
 	TelegramUser
 } from '$lib/telegram';
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import type { PreparedSendDocumentRequest } from './methods/document';
 import type { PreparedSendPhotoRequest, TelegramPhotoMessage } from './methods/photo';
 import type { PreparedSendVoiceRequest, TelegramVoiceMessage } from './methods/voice';
+import type { PreparedSendPoll } from './methods/poll';
+import type { PreparedSendDiceRequest } from './methods/dice';
+import type { PreparedSendMediaGroupRequest } from './methods/media-group';
 
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org';
 
-type TelegramMethod = 'getMe' | 'sendMessage' | 'sendPhoto' | 'sendDocument' | 'sendVoice';
-type PreparedMediaRequest =
+type TelegramMethod =
+	| 'getMe'
+	| 'sendMessage'
+	| 'sendPhoto'
+	| 'sendDocument'
+	| 'sendVoice'
+	| 'sendPoll'
+	| 'sendDice'
+	| 'sendMediaGroup';
+type PreparedSendPollRequest = Extract<PreparedSendPoll, { ok: true }>['request'];
+type PreparedRequest =
 	| PreparedSendPhotoRequest
 	| PreparedSendDocumentRequest
-	| PreparedSendVoiceRequest;
+	| PreparedSendVoiceRequest
+	| PreparedSendPollRequest
+	| PreparedSendDiceRequest
+	| PreparedSendMediaGroupRequest;
 
 export class TelegramClientError extends Error {
 	readonly response?: TelegramApiFailure;
@@ -49,10 +65,15 @@ export class TelegramClient {
 		return this.#request<TelegramUser>('getMe');
 	}
 
-	sendMessage(chatId: string, text: string): Promise<TelegramApiSuccess<TelegramMessage>> {
+	sendMessage(
+		chatId: string,
+		text: string,
+		replyMarkup?: TelegramReplyMarkup
+	): Promise<TelegramApiSuccess<TelegramMessage>> {
 		return this.#request<TelegramMessage>('sendMessage', {
 			chat_id: chatId,
-			text
+			text,
+			...(replyMarkup === undefined ? {} : { reply_markup: replyMarkup })
 		});
 	}
 
@@ -68,7 +89,21 @@ export class TelegramClient {
 		return this.#sendPrepared<TelegramVoiceMessage>(request);
 	}
 
-	#sendPrepared<T>(request: PreparedMediaRequest) {
+	sendPoll(request: PreparedSendPollRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendDice(request: PreparedSendDiceRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendMediaGroup(
+		request: PreparedSendMediaGroupRequest
+	): Promise<TelegramApiSuccess<TelegramMessage[]>> {
+		return this.#sendPrepared<TelegramMessage[]>(request);
+	}
+
+	#sendPrepared<T>(request: PreparedRequest) {
 		return this.#request<T>(request.method, request.body);
 	}
 

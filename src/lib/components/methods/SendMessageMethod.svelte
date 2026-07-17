@@ -3,6 +3,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { tick, untrack } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
+	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
@@ -13,6 +14,8 @@
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import type { MethodComponentProps, SendMessageFeedback } from '$lib/playground/types';
 	import { buildSendMessagePayload } from '$lib/playground/payload';
+	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
+	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 	import type { TelegramApiFailure, TelegramApiSuccess, TelegramMessage } from '$lib/telegram';
 
 	let { initialFeedback }: MethodComponentProps = $props();
@@ -23,10 +26,13 @@
 	let feedback = $state<SendMessageFeedback | null>(initial);
 	let chatId = $state(initial?.fields?.chatId ?? '');
 	let messageText = $state(initial?.fields?.text ?? '');
+	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
+		restoreReplyMarkup(initial?.fields?.replyMarkup)
+	);
 	let chatIdInput: HTMLInputElement | undefined;
 	let messageTextInput: HTMLTextAreaElement | undefined;
 	const sentMessage = $derived(getResult(feedback?.response));
-	const requestPayload = $derived(buildSendMessagePayload(chatId, messageText));
+	const requestPayload = $derived(buildSendMessagePayload(chatId, messageText, replyMarkup));
 
 	const captureChatIdInput: Attachment<HTMLInputElement> = (element) => {
 		chatIdInput = element;
@@ -123,6 +129,12 @@
 						></textarea>
 					{/snippet}
 				</FormField>
+
+				<ReplyMarkupEditor
+					bind:value={replyMarkup}
+					errors={feedback?.replyMarkupErrors}
+					idPrefix="send-message-reply"
+				/>
 				<PayloadPreview titleId="send-message-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />
 			</form>

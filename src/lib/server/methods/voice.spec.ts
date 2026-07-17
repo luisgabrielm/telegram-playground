@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import {
 	TELEGRAM_VOICE_CAPTION_MAX_LENGTH,
 	TELEGRAM_VOICE_MAX_BYTES,
@@ -137,6 +138,33 @@ describe('prepareSendVoice', () => {
 		expect((uploaded as File).name).toBe('field-note.m4a');
 		expect((uploaded as File).type).toBe('audio/mp4');
 		expect((uploaded as File).lastModified).toBe(1_700_000_000_000);
+	});
+
+	it('includes reply markup in JSON and multipart requests', () => {
+		const replyMarkup: TelegramReplyMarkup = {
+			force_reply: true,
+			input_field_placeholder: 'Your answer'
+		};
+		const jsonResult = prepareSendVoice({
+			chatId: '42',
+			voice: { kind: 'reference', value: 'file-id' },
+			replyMarkup
+		});
+		const multipartResult = prepareSendVoice({
+			chatId: '42',
+			voice: { kind: 'upload', file: new File(['voice'], 'voice.ogg') },
+			replyMarkup
+		});
+
+		expect(jsonResult.ok).toBe(true);
+		if (!jsonResult.ok || jsonResult.request.encoding !== 'json') throw new Error('Expected JSON');
+		expect(jsonResult.request.body.reply_markup).toBe(replyMarkup);
+
+		expect(multipartResult.ok).toBe(true);
+		if (!multipartResult.ok || multipartResult.request.encoding !== 'multipart') {
+			throw new Error('Expected multipart');
+		}
+		expect(multipartResult.request.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
 	});
 
 	it('omits blank optional values while preserving an explicit zero duration', () => {

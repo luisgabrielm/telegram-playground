@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { validateMessage } from '$lib/server/message-validation';
+import { parseReplyMarkup } from '$lib/server/reply-markup';
 import { prepareSendDocument } from '$lib/server/methods/document';
 import {
 	prepareSendPhotoRequest,
@@ -7,6 +8,13 @@ import {
 	type TelegramPhotoSource
 } from '$lib/server/methods/photo';
 import { prepareSendVoice, type TelegramVoiceSource } from '$lib/server/methods/voice';
+import { prepareSendPoll } from '$lib/server/methods/poll';
+import { prepareSendDice } from '$lib/server/methods/dice';
+import {
+	prepareSendMediaGroup,
+	type MediaGroupItemType,
+	type SendMediaGroupItem
+} from '$lib/server/methods/media-group';
 import {
 	createTelegramClient,
 	getPublicTelegramError,
@@ -43,29 +51,33 @@ export const actions = {
 		const formData = await request.formData();
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
-			text: String(formData.get('text') ?? '')
+			text: String(formData.get('text') ?? ''),
+			replyMarkup: String(formData.get('replyMarkup') ?? '')
 		};
 		const validation = validateMessage(fields);
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 
-		if (!validation.valid) {
+		if (!validation.valid || !replyMarkup.ok) {
 			return fail(400, {
 				action: 'sendMessage' as const,
 				success: false as const,
 				fields,
-				fieldErrors: validation.errors
+				fieldErrors: validation.errors,
+				replyMarkupErrors: replyMarkup.ok ? undefined : replyMarkup.errors
 			});
 		}
 
 		try {
 			const response = await createTelegramClient(fetch).sendMessage(
 				fields.chatId.trim(),
-				fields.text
+				fields.text,
+				replyMarkup.value
 			);
 
 			return {
 				action: 'sendMessage' as const,
 				success: true as const,
-				fields: { chatId: fields.chatId, text: '' },
+				fields: { chatId: fields.chatId, text: '', replyMarkup: fields.replyMarkup },
 				response
 			};
 		} catch (error) {
@@ -83,6 +95,10 @@ export const actions = {
 	sendPhoto: async ({ request, fetch }) => {
 		const formData = await request.formData();
 		const fields = mediaFields(formData, 'photo');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendPhoto', fields, replyMarkup.errors));
+		}
 		const source = mediaSource(formData, 'photo') as TelegramPhotoSource;
 
 		try {
@@ -90,7 +106,8 @@ export const actions = {
 				chatId: fields.chatId,
 				photo: source,
 				caption: fields.caption,
-				hasSpoiler: formData.get('hasSpoiler') === 'true'
+				hasSpoiler: formData.get('hasSpoiler') === 'true',
+				replyMarkup: replyMarkup.value
 			});
 			const response = await createTelegramClient(fetch).sendPhoto(prepared);
 			return mediaSuccess('sendPhoto', fields, response);
@@ -104,10 +121,15 @@ export const actions = {
 	sendDocument: async ({ request, fetch }) => {
 		const formData = await request.formData();
 		const fields = mediaFields(formData, 'document');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendDocument', fields, replyMarkup.errors));
+		}
 		const prepared = prepareSendDocument({
 			chatId: fields.chatId,
 			document: mediaEntry(formData, 'document'),
-			caption: fields.caption
+			caption: fields.caption,
+			replyMarkup: replyMarkup.value
 		});
 
 		if (!prepared.ok) {
@@ -124,13 +146,18 @@ export const actions = {
 	sendVoice: async ({ request, fetch }) => {
 		const formData = await request.formData();
 		const fields = mediaFields(formData, 'voice');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendVoice', fields, replyMarkup.errors));
+		}
 		const source = mediaSource(formData, 'voice') as TelegramVoiceSource;
 		const durationValue = String(formData.get('duration') ?? '').trim();
 		const prepared = prepareSendVoice({
 			chatId: fields.chatId,
 			voice: source,
 			caption: fields.caption,
-			duration: durationValue ? Number(durationValue) : undefined
+			duration: durationValue ? Number(durationValue) : undefined,
+			replyMarkup: replyMarkup.value
 		});
 
 		if (!prepared.ok) {
@@ -142,6 +169,139 @@ export const actions = {
 			return mediaSuccess('sendVoice', fields, response);
 		} catch (error) {
 			return mediaTelegramFailure('sendVoice', fields, error);
+		}
+	},
+	sendDice: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			emoji: String(formData.get('emoji') ?? '🎲'),
+			replyMarkup: String(formData.get('replyMarkup') ?? '')
+		};
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, {
+				action: 'sendDice' as const,
+				success: false as const,
+				fields,
+				replyMarkupErrors: replyMarkup.errors
+			});
+		}
+		const prepared = prepareSendDice({
+			chatId: fields.chatId,
+			emoji: fields.emoji,
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'sendDice' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).sendDice(prepared.request);
+			return { action: 'sendDice' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendDice', fields, error);
+		}
+	},
+	sendPoll: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			question: String(formData.get('question') ?? ''),
+			options: stringEntries(formData, 'options'),
+			type: formData.get('type') === 'quiz' ? ('quiz' as const) : ('regular' as const),
+			isAnonymous: String(formData.get('isAnonymous') === 'true'),
+			allowsMultipleAnswers: String(formData.get('allowsMultipleAnswers') === 'true'),
+			correctOptionIds: stringEntries(formData, 'correctOptionIds'),
+			explanation: String(formData.get('explanation') ?? ''),
+			openPeriod: String(formData.get('openPeriod') ?? ''),
+			replyMarkup: String(formData.get('replyMarkup') ?? '')
+		};
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, {
+				action: 'sendPoll' as const,
+				success: false as const,
+				fields,
+				replyMarkupErrors: replyMarkup.errors
+			});
+		}
+		const prepared = prepareSendPoll({
+			chatId: fields.chatId,
+			question: fields.question,
+			options: fields.options,
+			type: fields.type,
+			isAnonymous: fields.isAnonymous === 'true',
+			allowsMultipleAnswers: fields.allowsMultipleAnswers === 'true',
+			correctOptionIds: fields.correctOptionIds.map(Number),
+			explanation: fields.explanation,
+			openPeriod: fields.openPeriod,
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'sendPoll' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).sendPoll(prepared.request);
+			return { action: 'sendPoll' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendPoll', fields, error);
+		}
+	},
+	sendMediaGroup: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			itemType: stringEntries(formData, 'itemType'),
+			itemSourceType: stringEntries(formData, 'itemSourceType'),
+			itemReference: stringEntries(formData, 'itemReference'),
+			itemCaption: stringEntries(formData, 'itemCaption')
+		};
+		const items: SendMediaGroupItem[] = fields.itemType.map((type, index) => {
+			const sourceType = fields.itemSourceType[index] ?? 'reference';
+			const fileEntry = formData.get(`itemFile.${index}`);
+			return {
+				type: type as MediaGroupItemType,
+				source:
+					sourceType === 'upload'
+						? {
+								kind: 'upload' as const,
+								file: fileEntry instanceof File ? fileEntry : new File([], ''),
+								filename: fileEntry instanceof File ? fileEntry.name : undefined
+							}
+						: {
+								kind: 'reference' as const,
+								value: fields.itemReference[index] ?? ''
+							},
+				caption: fields.itemCaption[index] ?? ''
+			};
+		});
+		const prepared = prepareSendMediaGroup({ chatId: fields.chatId, items });
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'sendMediaGroup' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).sendMediaGroup(prepared.request);
+			return { action: 'sendMediaGroup' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendMediaGroup', fields, error);
 		}
 	}
 } satisfies Actions;
@@ -155,7 +315,8 @@ function mediaFields(formData: FormData, mediaName: string) {
 		sourceType: String(formData.get('sourceType') ?? 'reference'),
 		mediaReference: String(formData.get(`${mediaName}Reference`) ?? ''),
 		duration: String(formData.get('duration') ?? ''),
-		hasSpoiler: String(formData.get('hasSpoiler') ?? '')
+		hasSpoiler: String(formData.get('hasSpoiler') ?? ''),
+		replyMarkup: String(formData.get('replyMarkup') ?? '')
 	};
 }
 
@@ -186,6 +347,14 @@ function mediaValidationFailure(
 	return { action, success: false as const, fields, fieldErrors };
 }
 
+function mediaReplyMarkupFailure(
+	action: MediaAction,
+	fields: ReturnType<typeof mediaFields>,
+	replyMarkupErrors: Record<string, string>
+) {
+	return { action, success: false as const, fields, replyMarkupErrors };
+}
+
 function mediaTelegramFailure(
 	action: MediaAction,
 	fields: ReturnType<typeof mediaFields>,
@@ -199,4 +368,23 @@ function mediaTelegramFailure(
 		error: telegramError.message,
 		response: telegramError.response
 	});
+}
+
+function methodTelegramFailure<Action extends 'sendPoll' | 'sendDice' | 'sendMediaGroup', Fields>(
+	action: Action,
+	fields: Fields,
+	error: unknown
+) {
+	const telegramError = getPublicTelegramError(error);
+	return fail(telegramError.response?.error_code === 401 ? 401 : 502, {
+		action,
+		success: false as const,
+		fields,
+		error: telegramError.message,
+		response: telegramError.response
+	});
+}
+
+function stringEntries(formData: FormData, name: string) {
+	return formData.getAll(name).map((value) => String(value));
 }

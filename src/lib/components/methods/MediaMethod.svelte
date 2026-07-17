@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { untrack } from 'svelte';
+	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
@@ -16,6 +17,8 @@
 		MethodComponentProps
 	} from '$lib/playground/types';
 	import { buildMediaPayload } from '$lib/playground/payload';
+	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
+	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 
 	type Props = MethodComponentProps & {
 		action: MediaAction;
@@ -54,6 +57,9 @@
 	let mediaReference = $state(initial?.fields?.mediaReference ?? '');
 	let duration = $state(initial?.fields?.duration ?? '');
 	let hasSpoiler = $state(initial?.fields?.hasSpoiler === 'true');
+	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
+		restoreReplyMarkup(initial?.fields?.replyMarkup)
+	);
 	let mediaFile = $state<File | null>(null);
 	const sentMessage = $derived(messageResult(feedback?.response));
 	const mediaError = $derived(feedback?.fieldErrors?.[mediaName]);
@@ -66,7 +72,8 @@
 			file: mediaFile,
 			caption,
 			duration: showDuration ? duration : undefined,
-			hasSpoiler: showSpoiler ? hasSpoiler : undefined
+			hasSpoiler: showSpoiler ? hasSpoiler : undefined,
+			replyMarkup
 		})
 	);
 
@@ -236,6 +243,12 @@
 						<span>Hide the photo behind a spoiler animation</span>
 					</label>
 				{/if}
+
+				<ReplyMarkupEditor
+					bind:value={replyMarkup}
+					errors={feedback?.replyMarkupErrors}
+					idPrefix={`${action}-reply`}
+				/>
 
 				<PayloadPreview
 					titleId={`${action}-payload-title`}

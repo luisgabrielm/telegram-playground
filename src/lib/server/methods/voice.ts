@@ -1,3 +1,5 @@
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
+
 export const TELEGRAM_VOICE_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_VOICE_MAX_BYTES = 50 * 1024 * 1024;
 
@@ -10,6 +12,7 @@ export interface SendVoiceInput {
 	voice: TelegramVoiceSource;
 	caption?: string;
 	duration?: number;
+	replyMarkup?: TelegramReplyMarkup;
 }
 
 export interface SendVoiceFieldErrors {
@@ -47,6 +50,7 @@ export interface SendVoiceJsonBody {
 	voice: string;
 	caption?: string;
 	duration?: number;
+	reply_markup?: TelegramReplyMarkup;
 }
 
 export type PreparedSendVoiceRequest =
@@ -124,7 +128,8 @@ export function prepareSendVoice(input: SendVoiceInput): SendVoicePreparation {
 					chat_id: chatId,
 					voice: input.voice.value.trim(),
 					...(caption === undefined ? {} : { caption }),
-					...(input.duration === undefined ? {} : { duration: input.duration })
+					...(input.duration === undefined ? {} : { duration: input.duration }),
+					...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
 				}
 			}
 		};
@@ -140,6 +145,9 @@ export function prepareSendVoice(input: SendVoiceInput): SendVoicePreparation {
 
 	if (input.duration !== undefined) {
 		body.set('duration', String(input.duration));
+	}
+	if (input.replyMarkup !== undefined) {
+		body.set('reply_markup', JSON.stringify(input.replyMarkup));
 	}
 
 	return {

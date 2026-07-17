@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import {
 	TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH,
 	TELEGRAM_DOCUMENT_MAX_BYTES,
@@ -89,6 +90,35 @@ describe('prepareSendDocument', () => {
 		expect(result.request.body.get('chat_id')).toBe('42');
 		expect(result.request.body.get('document')).toBe(document);
 		expect(result.request.body.get('caption')).toBe('Report');
+	});
+
+	it('includes reply markup in JSON and multipart requests', () => {
+		const replyMarkup: TelegramReplyMarkup = {
+			keyboard: [[{ text: 'Yes' }, { text: 'No' }]],
+			resize_keyboard: true
+		};
+		const jsonResult = prepareSendDocument({
+			chatId: '42',
+			document: 'file-id',
+			caption: '',
+			replyMarkup
+		});
+		const multipartResult = prepareSendDocument({
+			chatId: '42',
+			document: new File(['document'], 'report.pdf'),
+			caption: '',
+			replyMarkup
+		});
+
+		expect(jsonResult.ok).toBe(true);
+		if (!jsonResult.ok || jsonResult.request.encoding !== 'json') throw new Error('Expected JSON');
+		expect(jsonResult.request.body.reply_markup).toBe(replyMarkup);
+
+		expect(multipartResult.ok).toBe(true);
+		if (!multipartResult.ok || multipartResult.request.encoding !== 'multipart') {
+			throw new Error('Expected multipart');
+		}
+		expect(multipartResult.request.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
 	});
 
 	it('omits a whitespace-only optional caption', () => {

@@ -13,6 +13,20 @@
    - Provide a one-click copy action with clear success and failure feedback.
    - Represent multipart uploads safely with file metadata instead of reading or exposing file contents.
 
+## Reply options
+
+1. [x] **Inline URL and copy-text buttons**
+   - Build reusable multi-row inline keyboards with URL and clipboard actions.
+
+2. [x] **Inline callback-data buttons**
+   - Support 1–64 byte callback payloads while deferring received callback handling to webhook work.
+
+3. [x] **Plain-text reply keyboards**
+   - Build multi-row text keyboards with persistence, resize, one-time, and placeholder options.
+
+4. [x] **Remove keyboard and force reply**
+   - Remove an existing reply keyboard or open Telegram's reply composer with an optional placeholder.
+
 ## Message types
 
 1. [x] **Text message — `sendMessage`**
@@ -52,13 +66,13 @@
 12. [ ] **Venue — `sendVenue`**
     - Support coordinates, title, address, and optional provider identifiers.
 
-13. [ ] **Poll / quiz — `sendPoll`**
+13. [x] **Poll / quiz — `sendPoll`**
     - Support regular polls, quizzes, answer options, explanation, anonymity, and open period.
 
-14. [ ] **Dice — `sendDice`**
+14. [x] **Dice — `sendDice`**
     - Support dice, darts, basketball, football, bowling, and slot-machine emoji variants.
 
-15. [ ] **Media group / album — `sendMediaGroup`**
+15. [x] **Media group / album — `sendMediaGroup`**
     - Support compatible photo, video, audio, and document collections.
 
 16. [ ] **Streaming text draft — `sendMessageDraft`**

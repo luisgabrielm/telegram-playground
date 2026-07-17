@@ -1,3 +1,5 @@
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
+
 export const TELEGRAM_PHOTO_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -10,6 +12,7 @@ export interface SendPhotoInput {
 	photo: TelegramPhotoSource;
 	caption?: string;
 	hasSpoiler?: boolean;
+	replyMarkup?: TelegramReplyMarkup;
 }
 
 export interface SendPhotoFieldErrors {
@@ -45,7 +48,13 @@ export type PreparedSendPhotoRequest =
 	| {
 			method: 'sendPhoto';
 			encoding: 'json';
-			body: { chat_id: string; photo: string; caption?: string; has_spoiler?: boolean };
+			body: {
+				chat_id: string;
+				photo: string;
+				caption?: string;
+				has_spoiler?: boolean;
+				reply_markup?: TelegramReplyMarkup;
+			};
 	  }
 	| {
 			method: 'sendPhoto';
@@ -117,7 +126,8 @@ export function prepareSendPhotoRequest(input: SendPhotoInput): PreparedSendPhot
 				chat_id: chatId,
 				photo: input.photo.value.trim(),
 				...(caption === undefined ? {} : { caption }),
-				...(input.hasSpoiler ? { has_spoiler: true } : {})
+				...(input.hasSpoiler ? { has_spoiler: true } : {}),
+				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
 			}
 		};
 	}
@@ -131,6 +141,9 @@ export function prepareSendPhotoRequest(input: SendPhotoInput): PreparedSendPhot
 	}
 	if (input.hasSpoiler) {
 		body.set('has_spoiler', 'true');
+	}
+	if (input.replyMarkup !== undefined) {
+		body.set('reply_markup', JSON.stringify(input.replyMarkup));
 	}
 
 	return {

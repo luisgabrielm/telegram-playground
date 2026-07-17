@@ -1,3 +1,5 @@
+import type { TelegramReplyMarkup } from '$lib/reply-markup';
+
 export const TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
 
@@ -5,6 +7,7 @@ export interface SendDocumentFields {
 	chatId: string;
 	document: string | File | null;
 	caption: string;
+	replyMarkup?: TelegramReplyMarkup;
 }
 
 export interface SendDocumentFieldErrors {
@@ -17,6 +20,7 @@ export interface SendDocumentJsonBody {
 	chat_id: string;
 	document: string;
 	caption?: string;
+	reply_markup?: TelegramReplyMarkup;
 }
 
 export type PreparedSendDocumentRequest =
@@ -92,7 +96,8 @@ export function prepareSendDocument(fields: SendDocumentFields): SendDocumentPre
 				body: {
 					chat_id: chatId,
 					document: fields.document.trim(),
-					...(caption === undefined ? {} : { caption })
+					...(caption === undefined ? {} : { caption }),
+					...(fields.replyMarkup === undefined ? {} : { reply_markup: fields.replyMarkup })
 				}
 			}
 		};
@@ -104,6 +109,9 @@ export function prepareSendDocument(fields: SendDocumentFields): SendDocumentPre
 
 	if (caption !== undefined) {
 		body.set('caption', caption);
+	}
+	if (fields.replyMarkup !== undefined) {
+		body.set('reply_markup', JSON.stringify(fields.replyMarkup));
 	}
 
 	return {

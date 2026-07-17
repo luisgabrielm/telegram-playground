@@ -37,4 +37,30 @@ export interface TelegramMessage {
 	chat: TelegramChat;
 	from?: TelegramUser;
 	text?: string;
+	media_group_id?: string;
+	poll?: TelegramPoll;
+	dice?: TelegramDice;
+}
+
+export interface TelegramPollOption {
+	text: string;
+	voter_count: number;
+}
+
+export interface TelegramPoll {
+	id: string;
+	question: string;
+	options: TelegramPollOption[];
+	total_voter_count: number;
+	is_closed: boolean;
+	is_anonymous: boolean;
+	type: 'regular' | 'quiz' | string;
+	allows_multiple_answers: boolean;
+	correct_option_ids?: number[];
+	explanation?: string;
+}
+
+export interface TelegramDice {
+	emoji: string;
+	value: number;
 }
