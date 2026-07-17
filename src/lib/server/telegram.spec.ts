@@ -234,6 +234,90 @@ describe('TelegramClient', () => {
 		);
 	});
 
+	it('routes the added media and place methods to their matching Telegram endpoints', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockImplementation(async () =>
+			jsonResponse({
+				ok: true,
+				result: { message_id: 14, date: 1, chat: { id: 123, type: 'private' } }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const calls = [
+			{
+				method: 'sendAudio',
+				send: () =>
+					client.sendAudio({
+						method: 'sendAudio',
+						encoding: 'json',
+						body: { chat_id: '123', audio: 'audio-id' }
+					})
+			},
+			{
+				method: 'sendVideo',
+				send: () =>
+					client.sendVideo({
+						method: 'sendVideo',
+						encoding: 'json',
+						body: { chat_id: '123', video: 'video-id' }
+					})
+			},
+			{
+				method: 'sendVideoNote',
+				send: () =>
+					client.sendVideoNote({
+						method: 'sendVideoNote',
+						encoding: 'json',
+						body: { chat_id: '123', video_note: 'video-note-id' }
+					})
+			},
+			{
+				method: 'sendAnimation',
+				send: () =>
+					client.sendAnimation({
+						method: 'sendAnimation',
+						encoding: 'json',
+						body: { chat_id: '123', animation: 'animation-id' }
+					})
+			},
+			{
+				method: 'sendContact',
+				send: () =>
+					client.sendContact({
+						method: 'sendContact',
+						body: { chat_id: '123', phone_number: '+1555', first_name: 'Ada' }
+					})
+			},
+			{
+				method: 'sendLocation',
+				send: () =>
+					client.sendLocation({
+						method: 'sendLocation',
+						body: { chat_id: '123', latitude: 1, longitude: 2 }
+					})
+			},
+			{
+				method: 'sendVenue',
+				send: () =>
+					client.sendVenue({
+						method: 'sendVenue',
+						body: {
+							chat_id: '123',
+							latitude: 1,
+							longitude: 2,
+							title: 'Hall',
+							address: '1 Main St'
+						}
+					})
+			}
+		];
+
+		for (const call of calls) await call.send();
+
+		expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(
+			calls.map(({ method }) => method)
+		);
+	});
+
 	it('surfaces Telegram API failures without leaking the token', async () => {
 		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
 			jsonResponse(

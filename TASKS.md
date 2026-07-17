@@ -42,28 +42,28 @@
 4. [x] **Voice note — `sendVoice`**
    - Support Telegram's voice-message format and optional caption.
 
-5. [ ] **Audio / music — `sendAudio`**
+5. [x] **Audio / music — `sendAudio`**
    - Support title, performer, duration, thumbnail, and optional caption.
 
-6. [ ] **Video — `sendVideo`**
+6. [x] **Video — `sendVideo`**
    - Support caption, duration, dimensions, thumbnail, streaming, and media spoiler.
 
-7. [ ] **Video note — `sendVideoNote`**
+7. [x] **Video note — `sendVideoNote`**
    - Support Telegram's short, round video-message format.
 
-8. [ ] **Animation / GIF — `sendAnimation`**
+8. [x] **Animation / GIF — `sendAnimation`**
    - Support MP4/GIF-style animation, caption, duration, dimensions, thumbnail, and spoiler.
 
 9. [ ] **Sticker — `sendSticker`**
    - Support static, animated, and video stickers.
 
-10. [ ] **Contact — `sendContact`**
+10. [x] **Contact — `sendContact`**
     - Support phone number, first name, last name, and optional vCard.
 
-11. [ ] **Location — `sendLocation`**
+11. [x] **Location — `sendLocation`**
     - Support latitude, longitude, accuracy, heading, proximity alerts, and optional live period.
 
-12. [ ] **Venue — `sendVenue`**
+12. [x] **Venue — `sendVenue`**
     - Support coordinates, title, address, and optional provider identifiers.
 
 13. [x] **Poll / quiz — `sendPoll`**

@@ -14,6 +14,13 @@ import type { PreparedSendPoll } from './methods/poll';
 import type { PreparedSendDiceRequest } from './methods/dice';
 import type { PreparedSendMediaGroupRequest } from './methods/media-group';
 import type { PreparedSendRichMessageRequest } from './methods/rich-message';
+import type { PreparedSendAudioRequest } from './methods/audio';
+import type { PreparedSendAnimationRequest } from './methods/animation';
+import type { PreparedSendVideoRequest } from './methods/video';
+import type { PreparedSendVideoNoteRequest } from './methods/video-note';
+import type { PreparedSendContact } from './methods/contact';
+import type { PreparedSendLocation } from './methods/location';
+import type { PreparedSendVenue } from './methods/venue';
 
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org';
 
@@ -23,11 +30,21 @@ type TelegramMethod =
 	| 'sendPhoto'
 	| 'sendDocument'
 	| 'sendVoice'
+	| 'sendAudio'
+	| 'sendVideo'
+	| 'sendVideoNote'
+	| 'sendAnimation'
+	| 'sendContact'
+	| 'sendLocation'
+	| 'sendVenue'
 	| 'sendPoll'
 	| 'sendDice'
 	| 'sendMediaGroup'
 	| 'sendRichMessage';
 type PreparedSendPollRequest = Extract<PreparedSendPoll, { ok: true }>['request'];
+type PreparedSendContactRequest = Extract<PreparedSendContact, { ok: true }>['request'];
+type PreparedSendLocationRequest = Extract<PreparedSendLocation, { ok: true }>['request'];
+type PreparedSendVenueRequest = Extract<PreparedSendVenue, { ok: true }>['request'];
 type PreparedRequest =
 	| PreparedSendPhotoRequest
 	| PreparedSendDocumentRequest
@@ -35,7 +52,14 @@ type PreparedRequest =
 	| PreparedSendPollRequest
 	| PreparedSendDiceRequest
 	| PreparedSendMediaGroupRequest
-	| PreparedSendRichMessageRequest;
+	| PreparedSendRichMessageRequest
+	| PreparedSendAudioRequest
+	| PreparedSendVideoRequest
+	| PreparedSendVideoNoteRequest
+	| PreparedSendAnimationRequest
+	| PreparedSendContactRequest
+	| PreparedSendLocationRequest
+	| PreparedSendVenueRequest;
 
 export class TelegramClientError extends Error {
 	readonly response?: TelegramApiFailure;
@@ -90,6 +114,34 @@ export class TelegramClient {
 
 	sendVoice(request: PreparedSendVoiceRequest): Promise<TelegramApiSuccess<TelegramVoiceMessage>> {
 		return this.#sendPrepared<TelegramVoiceMessage>(request);
+	}
+
+	sendAudio(request: PreparedSendAudioRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendVideo(request: PreparedSendVideoRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendVideoNote(request: PreparedSendVideoNoteRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendAnimation(request: PreparedSendAnimationRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendContact(request: PreparedSendContactRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendLocation(request: PreparedSendLocationRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	sendVenue(request: PreparedSendVenueRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
 	}
 
 	sendPoll(request: PreparedSendPollRequest): Promise<TelegramApiSuccess<TelegramMessage>> {

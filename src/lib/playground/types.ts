@@ -7,6 +7,13 @@ export type MethodId =
 	| 'sendPhoto'
 	| 'sendDocument'
 	| 'sendVoice'
+	| 'sendAudio'
+	| 'sendVideo'
+	| 'sendVideoNote'
+	| 'sendAnimation'
+	| 'sendContact'
+	| 'sendLocation'
+	| 'sendVenue'
 	| 'sendPoll'
 	| 'sendDice'
 	| 'sendMediaGroup'
@@ -38,7 +45,14 @@ export type SendMessageFeedback = FeedbackBase & {
 	replyMarkupErrors?: Record<string, string>;
 };
 
-export type MediaAction = 'sendPhoto' | 'sendDocument' | 'sendVoice';
+export type MediaAction =
+	| 'sendPhoto'
+	| 'sendDocument'
+	| 'sendVoice'
+	| 'sendAudio'
+	| 'sendVideo'
+	| 'sendVideoNote'
+	| 'sendAnimation';
 
 export type MediaFeedback = FeedbackBase & {
 	action: MediaAction;
@@ -49,6 +63,13 @@ export type MediaFeedback = FeedbackBase & {
 		sourceType?: string;
 		mediaReference?: string;
 		duration?: string;
+		title?: string;
+		performer?: string;
+		width?: string;
+		height?: string;
+		length?: string;
+		thumbnailReference?: string;
+		supportsStreaming?: string;
 		hasSpoiler?: string;
 		replyMarkup?: string;
 	};
@@ -59,6 +80,12 @@ export type MediaFeedback = FeedbackBase & {
 		voice?: string;
 		caption?: string;
 		duration?: string;
+		title?: string;
+		performer?: string;
+		width?: string;
+		height?: string;
+		length?: string;
+		thumbnail?: string;
 	};
 	replyMarkupErrors?: Record<string, string>;
 };
@@ -121,6 +148,57 @@ export type RichMessageFeedback = FeedbackBase & {
 	replyMarkupErrors?: Record<string, string>;
 };
 
+export type ContactFeedback = FeedbackBase & {
+	action: 'sendContact';
+	response?: TelegramApiSuccess<TelegramMessage> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		phoneNumber?: string;
+		firstName?: string;
+		lastName?: string;
+		vcard?: string;
+		replyMarkup?: string;
+	};
+	fieldErrors?: Record<string, string>;
+	replyMarkupErrors?: Record<string, string>;
+};
+
+export type LocationFeedback = FeedbackBase & {
+	action: 'sendLocation';
+	response?: TelegramApiSuccess<TelegramMessage> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		latitude?: string;
+		longitude?: string;
+		horizontalAccuracy?: string;
+		livePeriod?: string;
+		heading?: string;
+		proximityAlertRadius?: string;
+		replyMarkup?: string;
+	};
+	fieldErrors?: Record<string, string>;
+	replyMarkupErrors?: Record<string, string>;
+};
+
+export type VenueFeedback = FeedbackBase & {
+	action: 'sendVenue';
+	response?: TelegramApiSuccess<TelegramMessage> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		latitude?: string;
+		longitude?: string;
+		title?: string;
+		address?: string;
+		foursquareId?: string;
+		foursquareType?: string;
+		googlePlaceId?: string;
+		googlePlaceType?: string;
+		replyMarkup?: string;
+	};
+	fieldErrors?: Record<string, string>;
+	replyMarkupErrors?: Record<string, string>;
+};
+
 export type MethodFeedback =
 	| GetMeFeedback
 	| SendMessageFeedback
@@ -128,7 +206,10 @@ export type MethodFeedback =
 	| PollFeedback
 	| DiceFeedback
 	| MediaGroupFeedback
-	| RichMessageFeedback;
+	| RichMessageFeedback
+	| ContactFeedback
+	| LocationFeedback
+	| VenueFeedback;
 
 export type MethodComponentProps = {
 	configured: boolean;

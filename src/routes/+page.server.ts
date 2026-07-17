@@ -19,6 +19,19 @@ import {
 	parseRichMessageBlocks,
 	prepareSendRichMessage
 } from '$lib/server/methods/rich-message';
+import { prepareSendAudio, type TelegramAudioSource } from '$lib/server/methods/audio';
+import {
+	prepareSendAnimation,
+	type TelegramAnimationSource
+} from '$lib/server/methods/animation';
+import { prepareSendVideo, type TelegramVideoSource } from '$lib/server/methods/video';
+import {
+	prepareSendVideoNote,
+	type TelegramVideoNoteSource
+} from '$lib/server/methods/video-note';
+import { prepareSendContact } from '$lib/server/methods/contact';
+import { prepareSendLocation } from '$lib/server/methods/location';
+import { prepareSendVenue } from '$lib/server/methods/venue';
 import {
 	createTelegramClient,
 	getPublicTelegramError,
@@ -173,6 +186,157 @@ export const actions = {
 			return mediaSuccess('sendVoice', fields, response);
 		} catch (error) {
 			return mediaTelegramFailure('sendVoice', fields, error);
+		}
+	},
+	sendAudio: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = advancedMediaFields(formData, 'audio');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendAudio', fields, replyMarkup.errors));
+		}
+		const prepared = prepareSendAudio({
+			chatId: fields.chatId,
+			audio: mediaSource(formData, 'audio') as TelegramAudioSource,
+			caption: fields.caption,
+			duration: optionalNumber(fields.duration),
+			performer: fields.performer,
+			title: fields.title,
+			thumbnail: optionalFile(formData, 'thumbnailFile'),
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, mediaValidationFailure('sendAudio', fields, prepared.errors));
+		}
+		try {
+			const response = await createTelegramClient(fetch).sendAudio(prepared.request);
+			return mediaSuccess('sendAudio', fields, response);
+		} catch (error) {
+			return mediaTelegramFailure('sendAudio', fields, error);
+		}
+	},
+	sendVideo: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = advancedMediaFields(formData, 'video');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendVideo', fields, replyMarkup.errors));
+		}
+		const prepared = prepareSendVideo({
+			chatId: fields.chatId,
+			video: mediaSource(formData, 'video') as TelegramVideoSource,
+			caption: fields.caption,
+			duration: optionalNumber(fields.duration),
+			width: optionalNumber(fields.width),
+			height: optionalNumber(fields.height),
+			thumbnail: optionalFile(formData, 'thumbnailFile'),
+			supportsStreaming: fields.supportsStreaming === 'true',
+			hasSpoiler: fields.hasSpoiler === 'true',
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, mediaValidationFailure('sendVideo', fields, prepared.errors));
+		}
+		try {
+			const response = await createTelegramClient(fetch).sendVideo(prepared.request);
+			return mediaSuccess('sendVideo', fields, response);
+		} catch (error) {
+			return mediaTelegramFailure('sendVideo', fields, error);
+		}
+	},
+	sendVideoNote: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = advancedMediaFields(formData, 'videoNote');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendVideoNote', fields, replyMarkup.errors));
+		}
+		const prepared = prepareSendVideoNote({
+			chatId: fields.chatId,
+			videoNote: mediaSource(formData, 'videoNote') as TelegramVideoNoteSource,
+			duration: optionalNumber(fields.duration),
+			length: optionalNumber(fields.length),
+			thumbnail: optionalFile(formData, 'thumbnailFile'),
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, mediaValidationFailure('sendVideoNote', fields, prepared.errors));
+		}
+		try {
+			const response = await createTelegramClient(fetch).sendVideoNote(prepared.request);
+			return mediaSuccess('sendVideoNote', fields, response);
+		} catch (error) {
+			return mediaTelegramFailure('sendVideoNote', fields, error);
+		}
+	},
+	sendAnimation: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = advancedMediaFields(formData, 'animation');
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, mediaReplyMarkupFailure('sendAnimation', fields, replyMarkup.errors));
+		}
+		const prepared = prepareSendAnimation({
+			chatId: fields.chatId,
+			animation: mediaSource(formData, 'animation') as TelegramAnimationSource,
+			caption: fields.caption,
+			duration: optionalNumber(fields.duration),
+			width: optionalNumber(fields.width),
+			height: optionalNumber(fields.height),
+			thumbnail: optionalFile(formData, 'thumbnailFile'),
+			hasSpoiler: fields.hasSpoiler === 'true',
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, mediaValidationFailure('sendAnimation', fields, prepared.errors));
+		}
+		try {
+			const response = await createTelegramClient(fetch).sendAnimation(prepared.request);
+			return mediaSuccess('sendAnimation', fields, response);
+		} catch (error) {
+			return mediaTelegramFailure('sendAnimation', fields, error);
+		}
+	},
+	sendContact: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = contactFields(formData);
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) return replyMarkupFailure('sendContact', fields, replyMarkup.errors);
+		const prepared = prepareSendContact({ ...fields, replyMarkup: replyMarkup.value });
+		if (!prepared.ok) return methodValidationFailure('sendContact', fields, prepared.errors);
+		try {
+			const response = await createTelegramClient(fetch).sendContact(prepared.request);
+			return { action: 'sendContact' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendContact', fields, error);
+		}
+	},
+	sendLocation: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = locationFields(formData);
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) return replyMarkupFailure('sendLocation', fields, replyMarkup.errors);
+		const prepared = prepareSendLocation({ ...fields, replyMarkup: replyMarkup.value });
+		if (!prepared.ok) return methodValidationFailure('sendLocation', fields, prepared.errors);
+		try {
+			const response = await createTelegramClient(fetch).sendLocation(prepared.request);
+			return { action: 'sendLocation' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendLocation', fields, error);
+		}
+	},
+	sendVenue: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = venueFields(formData);
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) return replyMarkupFailure('sendVenue', fields, replyMarkup.errors);
+		const prepared = prepareSendVenue({ ...fields, replyMarkup: replyMarkup.value });
+		if (!prepared.ok) return methodValidationFailure('sendVenue', fields, prepared.errors);
+		try {
+			const response = await createTelegramClient(fetch).sendVenue(prepared.request);
+			return { action: 'sendVenue' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendVenue', fields, error);
 		}
 	},
 	sendDice: async ({ request, fetch }) => {
@@ -353,7 +517,14 @@ export const actions = {
 	}
 } satisfies Actions;
 
-type MediaAction = 'sendPhoto' | 'sendDocument' | 'sendVoice';
+type MediaAction =
+	| 'sendPhoto'
+	| 'sendDocument'
+	| 'sendVoice'
+	| 'sendAudio'
+	| 'sendVideo'
+	| 'sendVideoNote'
+	| 'sendAnimation';
 
 function mediaFields(formData: FormData, mediaName: string) {
 	return {
@@ -363,6 +534,58 @@ function mediaFields(formData: FormData, mediaName: string) {
 		mediaReference: String(formData.get(`${mediaName}Reference`) ?? ''),
 		duration: String(formData.get('duration') ?? ''),
 		hasSpoiler: String(formData.get('hasSpoiler') ?? ''),
+		replyMarkup: String(formData.get('replyMarkup') ?? '')
+	};
+}
+
+function advancedMediaFields(formData: FormData, mediaName: string) {
+	return {
+		...mediaFields(formData, mediaName),
+		performer: String(formData.get('performer') ?? ''),
+		title: String(formData.get('title') ?? ''),
+		width: String(formData.get('width') ?? ''),
+		height: String(formData.get('height') ?? ''),
+		length: String(formData.get('length') ?? ''),
+		thumbnailReference: '',
+		supportsStreaming: String(formData.get('supportsStreaming') === 'true')
+	};
+}
+
+function contactFields(formData: FormData) {
+	return {
+		chatId: String(formData.get('chatId') ?? ''),
+		phoneNumber: String(formData.get('phoneNumber') ?? ''),
+		firstName: String(formData.get('firstName') ?? ''),
+		lastName: String(formData.get('lastName') ?? ''),
+		vcard: String(formData.get('vcard') ?? ''),
+		replyMarkup: String(formData.get('replyMarkup') ?? '')
+	};
+}
+
+function locationFields(formData: FormData) {
+	return {
+		chatId: String(formData.get('chatId') ?? ''),
+		latitude: String(formData.get('latitude') ?? ''),
+		longitude: String(formData.get('longitude') ?? ''),
+		horizontalAccuracy: String(formData.get('horizontalAccuracy') ?? ''),
+		livePeriod: String(formData.get('livePeriod') ?? ''),
+		heading: String(formData.get('heading') ?? ''),
+		proximityAlertRadius: String(formData.get('proximityAlertRadius') ?? ''),
+		replyMarkup: String(formData.get('replyMarkup') ?? '')
+	};
+}
+
+function venueFields(formData: FormData) {
+	return {
+		chatId: String(formData.get('chatId') ?? ''),
+		latitude: String(formData.get('latitude') ?? ''),
+		longitude: String(formData.get('longitude') ?? ''),
+		title: String(formData.get('title') ?? ''),
+		address: String(formData.get('address') ?? ''),
+		foursquareId: String(formData.get('foursquareId') ?? ''),
+		foursquareType: String(formData.get('foursquareType') ?? ''),
+		googlePlaceId: String(formData.get('googlePlaceId') ?? ''),
+		googlePlaceType: String(formData.get('googlePlaceType') ?? ''),
 		replyMarkup: String(formData.get('replyMarkup') ?? '')
 	};
 }
@@ -380,6 +603,15 @@ function mediaSource(formData: FormData, mediaName: string) {
 	return typeof entry === 'string'
 		? { kind: 'reference' as const, value: entry }
 		: { kind: 'upload' as const, file: entry ?? new File([], '') };
+}
+
+function optionalFile(formData: FormData, name: string) {
+	const value = formData.get(name);
+	return value instanceof File && value.name ? value : undefined;
+}
+
+function optionalNumber(value: string) {
+	return value.trim() ? Number(value) : undefined;
 }
 
 function mediaSuccess(action: MediaAction, fields: ReturnType<typeof mediaFields>, response: unknown) {
@@ -418,7 +650,14 @@ function mediaTelegramFailure(
 }
 
 function methodTelegramFailure<
-	Action extends 'sendPoll' | 'sendDice' | 'sendMediaGroup' | 'sendRichMessage',
+	Action extends
+		| 'sendPoll'
+		| 'sendDice'
+		| 'sendMediaGroup'
+		| 'sendRichMessage'
+		| 'sendContact'
+		| 'sendLocation'
+		| 'sendVenue',
 	Fields
 >(
 	action: Action,
@@ -433,6 +672,22 @@ function methodTelegramFailure<
 		error: telegramError.message,
 		response: telegramError.response
 	});
+}
+
+function methodValidationFailure<Action extends 'sendContact' | 'sendLocation' | 'sendVenue', Fields>(
+	action: Action,
+	fields: Fields,
+	fieldErrors: Record<string, string>
+) {
+	return fail(400, { action, success: false as const, fields, fieldErrors });
+}
+
+function replyMarkupFailure<Action extends 'sendContact' | 'sendLocation' | 'sendVenue', Fields>(
+	action: Action,
+	fields: Fields,
+	replyMarkupErrors: Record<string, string>
+) {
+	return fail(400, { action, success: false as const, fields, replyMarkupErrors });
 }
 
 function stringEntries(formData: FormData, name: string) {

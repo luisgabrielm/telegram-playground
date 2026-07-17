@@ -3,6 +3,13 @@ import SendMessageMethod from '$lib/components/methods/SendMessageMethod.svelte'
 import SendPhotoMethod from '$lib/components/methods/SendPhotoMethod.svelte';
 import SendDocumentMethod from '$lib/components/methods/SendDocumentMethod.svelte';
 import SendVoiceMethod from '$lib/components/methods/SendVoiceMethod.svelte';
+import SendAudioMethod from '$lib/components/methods/SendAudioMethod.svelte';
+import SendVideoMethod from '$lib/components/methods/SendVideoMethod.svelte';
+import SendVideoNoteMethod from '$lib/components/methods/SendVideoNoteMethod.svelte';
+import SendAnimationMethod from '$lib/components/methods/SendAnimationMethod.svelte';
+import SendContactMethod from '$lib/components/methods/SendContactMethod.svelte';
+import SendLocationMethod from '$lib/components/methods/SendLocationMethod.svelte';
+import SendVenueMethod from '$lib/components/methods/SendVenueMethod.svelte';
 import SendPollMethod from '$lib/components/methods/SendPollMethod.svelte';
 import SendDiceMethod from '$lib/components/methods/SendDiceMethod.svelte';
 import SendMediaGroupMethod from '$lib/components/methods/SendMediaGroupMethod.svelte';
@@ -44,6 +51,55 @@ export const methods = [
 		apiMethod: 'sendVoice',
 		group: 'Messages',
 		component: SendVoiceMethod
+	},
+	{
+		id: 'sendAudio',
+		label: 'Audio',
+		apiMethod: 'sendAudio',
+		group: 'Messages',
+		component: SendAudioMethod
+	},
+	{
+		id: 'sendVideo',
+		label: 'Video',
+		apiMethod: 'sendVideo',
+		group: 'Messages',
+		component: SendVideoMethod
+	},
+	{
+		id: 'sendVideoNote',
+		label: 'Video note',
+		apiMethod: 'sendVideoNote',
+		group: 'Messages',
+		component: SendVideoNoteMethod
+	},
+	{
+		id: 'sendAnimation',
+		label: 'Animation',
+		apiMethod: 'sendAnimation',
+		group: 'Messages',
+		component: SendAnimationMethod
+	},
+	{
+		id: 'sendContact',
+		label: 'Contact',
+		apiMethod: 'sendContact',
+		group: 'Messages',
+		component: SendContactMethod
+	},
+	{
+		id: 'sendLocation',
+		label: 'Location',
+		apiMethod: 'sendLocation',
+		group: 'Messages',
+		component: SendLocationMethod
+	},
+	{
+		id: 'sendVenue',
+		label: 'Venue',
+		apiMethod: 'sendVenue',
+		group: 'Messages',
+		component: SendVenueMethod
 	},
 	{
 		id: 'sendPoll',

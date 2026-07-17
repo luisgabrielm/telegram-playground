@@ -76,6 +76,42 @@ export function buildMediaPayload(input: MediaPayloadInput): {
 	return { encoding, payload };
 }
 
+export function buildAudioAnimationPayload(input: {
+	chatId: string;
+	mediaName: 'audio' | 'animation';
+	sourceType: 'reference' | 'upload';
+	mediaReference: string;
+	file: File | null;
+	caption: string;
+	duration: string | number;
+	performer?: string;
+	title?: string;
+	width?: string | number;
+	height?: string | number;
+	thumbnailFile?: File | null;
+	hasSpoiler?: boolean;
+	replyMarkup?: TelegramReplyMarkup;
+}): { encoding: PayloadEncoding; payload: Record<string, unknown> } {
+	const encoding: PayloadEncoding = input.sourceType === 'upload' ? 'multipart' : 'json';
+	const payload: Record<string, unknown> = {
+		chat_id: input.chatId.trim(),
+		[input.mediaName]:
+			input.sourceType === 'upload' ? filePreview(input.file) : input.mediaReference.trim()
+	};
+
+	if (input.caption.trim()) payload.caption = input.caption;
+	if (hasValue(input.duration)) payload.duration = numericPreview(input.duration);
+	if (input.performer?.trim()) payload.performer = input.performer;
+	if (input.title?.trim()) payload.title = input.title;
+	if (hasValue(input.width)) payload.width = numericPreview(input.width);
+	if (hasValue(input.height)) payload.height = numericPreview(input.height);
+	if (input.thumbnailFile) payload.thumbnail = filePreview(input.thumbnailFile);
+	if (input.hasSpoiler) payload.has_spoiler = true;
+	if (input.replyMarkup) payload.reply_markup = input.replyMarkup;
+
+	return { encoding, payload };
+}
+
 export type SendPollPayloadInput = {
 	chatId: string;
 	question: string;
@@ -126,6 +162,72 @@ export function buildSendDicePayload(
 		emoji,
 		...(replyMarkup ? { reply_markup: replyMarkup } : {})
 	};
+}
+
+export function buildSendContactPayload(input: {
+	chatId: string;
+	phoneNumber: string;
+	firstName: string;
+	lastName: string;
+	vcard: string;
+	replyMarkup?: TelegramReplyMarkup;
+}) {
+	return {
+		chat_id: input.chatId.trim(),
+		phone_number: input.phoneNumber.trim(),
+		first_name: input.firstName,
+		...(input.lastName.trim() ? { last_name: input.lastName } : {}),
+		...(input.vcard.trim() ? { vcard: input.vcard } : {}),
+		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
+	};
+}
+
+export function buildSendLocationPayload(input: {
+	chatId: string;
+	latitude: string | number;
+	longitude: string | number;
+	horizontalAccuracy: string | number;
+	livePeriod: string | number;
+	heading: string | number;
+	proximityAlertRadius: string | number;
+	replyMarkup?: TelegramReplyMarkup;
+}) {
+	return compactPayload({
+		chat_id: input.chatId.trim(),
+		latitude: numericPreview(input.latitude),
+		longitude: numericPreview(input.longitude),
+		horizontal_accuracy: optionalNumericPreview(input.horizontalAccuracy),
+		live_period: optionalNumericPreview(input.livePeriod),
+		heading: optionalNumericPreview(input.heading),
+		proximity_alert_radius: optionalNumericPreview(input.proximityAlertRadius),
+		reply_markup: input.replyMarkup
+	});
+}
+
+export function buildSendVenuePayload(input: {
+	chatId: string;
+	latitude: string | number;
+	longitude: string | number;
+	title: string;
+	address: string;
+	foursquareId: string;
+	foursquareType: string;
+	googlePlaceId: string;
+	googlePlaceType: string;
+	replyMarkup?: TelegramReplyMarkup;
+}) {
+	return compactPayload({
+		chat_id: input.chatId.trim(),
+		latitude: numericPreview(input.latitude),
+		longitude: numericPreview(input.longitude),
+		title: input.title,
+		address: input.address,
+		foursquare_id: optionalText(input.foursquareId),
+		foursquare_type: optionalText(input.foursquareType),
+		google_place_id: optionalText(input.googlePlaceId),
+		google_place_type: optionalText(input.googlePlaceType),
+		reply_markup: input.replyMarkup
+	});
 }
 
 export type MediaGroupPayloadItem = {
@@ -180,7 +282,24 @@ function filePreview(file: File | null): FilePayloadPreview {
 	};
 }
 
-function numericPreview(value: string) {
+function numericPreview(value: string | number) {
+	if (!hasValue(value)) return value;
 	const number = Number(value);
 	return Number.isFinite(number) ? number : value;
+}
+
+function optionalNumericPreview(value: string | number) {
+	return hasValue(value) ? numericPreview(value) : undefined;
+}
+
+function optionalText(value: string) {
+	return value.trim() || undefined;
+}
+
+function compactPayload(payload: Record<string, unknown>) {
+	return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+}
+
+function hasValue(value: string | number | undefined): value is string | number {
+	return value !== undefined && (typeof value === 'number' || Boolean(value.trim()));
 }

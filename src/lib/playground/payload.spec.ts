@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+	buildAudioAnimationPayload,
 	buildMediaGroupPayload,
 	buildMediaPayload,
 	buildSendDicePayload,
+	buildSendContactPayload,
+	buildSendLocationPayload,
 	buildSendMessagePayload,
 	buildSendPollPayload,
-	buildSendRichMessagePayload
+	buildSendRichMessagePayload,
+	buildSendVenuePayload
 } from './payload';
 
 describe('request payload previews', () => {
@@ -98,6 +102,35 @@ describe('request payload previews', () => {
 		expect(preview.payload.document).toEqual({ $file: null });
 	});
 
+	it('builds safe multipart audio previews with metadata', () => {
+		const audio = new File(['audio bytes'], 'track.mp3', { type: 'audio/mpeg' });
+		const thumbnail = new File(['image bytes'], 'cover.jpg', { type: 'image/jpeg' });
+		const preview = buildAudioAnimationPayload({
+			chatId: '123',
+			mediaName: 'audio',
+			sourceType: 'upload',
+			mediaReference: '',
+			file: audio,
+			caption: 'Listen',
+			duration: '42',
+			performer: 'Performer',
+			title: 'Title',
+			thumbnailFile: thumbnail
+		});
+
+		expect(preview.encoding).toBe('multipart');
+		expect(preview.payload).toEqual({
+			chat_id: '123',
+			audio: { $file: expect.objectContaining({ name: 'track.mp3', type: 'audio/mpeg' }) },
+			caption: 'Listen',
+			duration: 42,
+			performer: 'Performer',
+			title: 'Title',
+			thumbnail: { $file: expect.objectContaining({ name: 'cover.jpg', type: 'image/jpeg' }) }
+		});
+		expect(JSON.stringify(preview)).not.toContain('audio bytes');
+	});
+
 	it('includes reply markup in multipart previews', () => {
 		const preview = buildMediaPayload({
 			chatId: '123',
@@ -145,6 +178,84 @@ describe('request payload previews', () => {
 			chat_id: '@test',
 			emoji: '🎯',
 			reply_markup: { force_reply: true }
+		});
+	});
+
+	it('builds contact payloads with optional vCard data', () => {
+		expect(
+			buildSendContactPayload({
+				chatId: ' 123 ',
+				phoneNumber: ' +15551234567 ',
+				firstName: 'Ada',
+				lastName: 'Lovelace',
+				vcard: 'BEGIN:VCARD\nEND:VCARD'
+			})
+		).toEqual({
+			chat_id: '123',
+			phone_number: '+15551234567',
+			first_name: 'Ada',
+			last_name: 'Lovelace',
+			vcard: 'BEGIN:VCARD\nEND:VCARD'
+		});
+	});
+
+	it('builds location payloads with numeric optional fields', () => {
+		expect(
+			buildSendLocationPayload({
+				chatId: '123',
+				latitude: '-23.55',
+				longitude: '-46.63',
+				horizontalAccuracy: '15.5',
+				livePeriod: '3600',
+				heading: '180',
+				proximityAlertRadius: '250'
+			})
+		).toEqual({
+			chat_id: '123',
+			latitude: -23.55,
+			longitude: -46.63,
+			horizontal_accuracy: 15.5,
+			live_period: 3600,
+			heading: 180,
+			proximity_alert_radius: 250
+		});
+	});
+
+	it('keeps required blank coordinates visibly blank in previews', () => {
+		expect(
+			buildSendLocationPayload({
+				chatId: '',
+				latitude: '',
+				longitude: '',
+				horizontalAccuracy: '',
+				livePeriod: '',
+				heading: '',
+				proximityAlertRadius: ''
+			})
+		).toEqual({ chat_id: '', latitude: '', longitude: '' });
+	});
+
+	it('omits empty venue provider identifiers', () => {
+		expect(
+			buildSendVenuePayload({
+				chatId: '@place',
+				latitude: '40.7',
+				longitude: '-74',
+				title: 'Example Hall',
+				address: '1 Main St',
+				foursquareId: '',
+				foursquareType: '',
+				googlePlaceId: 'google-id',
+				googlePlaceType: 'museum'
+			})
+		).toEqual({
+			chat_id: '@place',
+			latitude: 40.7,
+			longitude: -74,
+			title: 'Example Hall',
+			address: '1 Main St',
+			google_place_id: 'google-id',
+			google_place_type: 'museum'
 		});
 	});
 
