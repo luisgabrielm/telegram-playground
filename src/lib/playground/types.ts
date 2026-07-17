@@ -9,7 +9,8 @@ export type MethodId =
 	| 'sendVoice'
 	| 'sendPoll'
 	| 'sendDice'
-	| 'sendMediaGroup';
+	| 'sendMediaGroup'
+	| 'sendRichMessage';
 
 type FeedbackBase = {
 	success: boolean;
@@ -106,13 +107,28 @@ export type MediaGroupFeedback = FeedbackBase & {
 	fieldErrors?: Record<string, string>;
 };
 
+export type RichMessageFeedback = FeedbackBase & {
+	action: 'sendRichMessage';
+	response?: TelegramApiSuccess<TelegramMessage> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		blocks?: string;
+		isRtl?: string;
+		skipEntityDetection?: string;
+		replyMarkup?: string;
+	};
+	fieldErrors?: Record<string, string>;
+	replyMarkupErrors?: Record<string, string>;
+};
+
 export type MethodFeedback =
 	| GetMeFeedback
 	| SendMessageFeedback
 	| MediaFeedback
 	| PollFeedback
 	| DiceFeedback
-	| MediaGroupFeedback;
+	| MediaGroupFeedback
+	| RichMessageFeedback;
 
 export type MethodComponentProps = {
 	configured: boolean;

@@ -4,7 +4,8 @@ import {
 	buildMediaPayload,
 	buildSendDicePayload,
 	buildSendMessagePayload,
-	buildSendPollPayload
+	buildSendPollPayload,
+	buildSendRichMessagePayload
 } from './payload';
 
 describe('request payload previews', () => {
@@ -178,5 +179,30 @@ describe('request payload previews', () => {
 			$file: expect.objectContaining({ name: 'photo.jpg', type: 'image/jpeg', size: file.size })
 		});
 		expect(JSON.stringify(preview)).not.toContain('private bytes');
+	});
+
+	it('builds rich-message payloads with structured blocks', () => {
+		expect(
+			buildSendRichMessagePayload({
+				chatId: ' 123 ',
+				blocks: [
+					{ type: 'heading', text: 'Title', size: 1 },
+					{ type: 'paragraph', text: 'Body' }
+				],
+				isRtl: false,
+				skipEntityDetection: true,
+				replyMarkup: { remove_keyboard: true }
+			})
+		).toEqual({
+			chat_id: '123',
+			rich_message: {
+				blocks: [
+					{ type: 'heading', text: 'Title', size: 1 },
+					{ type: 'paragraph', text: 'Body' }
+				],
+				skip_entity_detection: true
+			},
+			reply_markup: { remove_keyboard: true }
+		});
 	});
 });

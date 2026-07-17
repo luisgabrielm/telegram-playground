@@ -5,6 +5,7 @@ import { prepareSendPhotoRequest } from './methods/photo';
 import { prepareSendDice } from './methods/dice';
 import { prepareSendMediaGroup } from './methods/media-group';
 import { prepareSendPoll } from './methods/poll';
+import { prepareSendRichMessage } from './methods/rich-message';
 import { TelegramClient, TelegramClientError, getPublicTelegramError } from './telegram';
 
 const TOKEN = '123456789:test-token';
@@ -204,6 +205,33 @@ describe('TelegramClient', () => {
 		);
 		expect(options?.body).toBeInstanceOf(FormData);
 		expect(options?.headers).toBeUndefined();
+	});
+
+	it('sends prepared rich-message block payloads', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				ok: true,
+				result: { message_id: 13, date: 1, chat: { id: 123, type: 'private' } }
+			})
+		);
+		const client = new TelegramClient(TOKEN, fetcher);
+		const prepared = prepareSendRichMessage({
+			chatId: '123',
+			blocks: [{ type: 'paragraph', text: 'Structured hello' }]
+		});
+		if (!prepared.ok) throw new Error('Expected a prepared request');
+
+		await client.sendRichMessage(prepared.request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/sendRichMessage`,
+			expect.objectContaining({
+				body: JSON.stringify({
+					chat_id: '123',
+					rich_message: { blocks: [{ type: 'paragraph', text: 'Structured hello' }] }
+				})
+			})
+		);
 	});
 
 	it('surfaces Telegram API failures without leaking the token', async () => {

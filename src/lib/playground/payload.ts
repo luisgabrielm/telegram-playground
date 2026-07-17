@@ -1,4 +1,5 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { InputRichBlock } from '$lib/rich-message';
 
 export type PayloadEncoding = 'json' | 'multipart';
 
@@ -32,6 +33,24 @@ export function buildSendMessagePayload(
 		chat_id: chatId.trim(),
 		text,
 		...(replyMarkup ? { reply_markup: replyMarkup } : {})
+	};
+}
+
+export function buildSendRichMessagePayload(input: {
+	chatId: string;
+	blocks: InputRichBlock[];
+	isRtl: boolean;
+	skipEntityDetection: boolean;
+	replyMarkup?: TelegramReplyMarkup;
+}) {
+	return {
+		chat_id: input.chatId.trim(),
+		rich_message: {
+			blocks: input.blocks,
+			...(input.isRtl ? { is_rtl: true } : {}),
+			...(input.skipEntityDetection ? { skip_entity_detection: true } : {})
+		},
+		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
 	};
 }
 

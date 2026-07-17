@@ -16,6 +16,10 @@ import {
 	type SendMediaGroupItem
 } from '$lib/server/methods/media-group';
 import {
+	parseRichMessageBlocks,
+	prepareSendRichMessage
+} from '$lib/server/methods/rich-message';
+import {
 	createTelegramClient,
 	getPublicTelegramError,
 	isTelegramConfigured
@@ -303,6 +307,49 @@ export const actions = {
 		} catch (error) {
 			return methodTelegramFailure('sendMediaGroup', fields, error);
 		}
+	},
+	sendRichMessage: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			blocks: String(formData.get('blocks') ?? ''),
+			isRtl: String(formData.get('isRtl') === 'true'),
+			skipEntityDetection: String(formData.get('skipEntityDetection') === 'true'),
+			replyMarkup: String(formData.get('replyMarkup') ?? '')
+		};
+		const parsedBlocks = parseRichMessageBlocks(fields.blocks);
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!parsedBlocks.ok || !replyMarkup.ok) {
+			return fail(400, {
+				action: 'sendRichMessage' as const,
+				success: false as const,
+				fields,
+				fieldErrors: parsedBlocks.ok ? undefined : parsedBlocks.errors,
+				replyMarkupErrors: replyMarkup.ok ? undefined : replyMarkup.errors
+			});
+		}
+		const prepared = prepareSendRichMessage({
+			chatId: fields.chatId,
+			blocks: parsedBlocks.value,
+			isRtl: fields.isRtl === 'true',
+			skipEntityDetection: fields.skipEntityDetection === 'true',
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'sendRichMessage' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).sendRichMessage(prepared.request);
+			return { action: 'sendRichMessage' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('sendRichMessage', fields, error);
+		}
 	}
 } satisfies Actions;
 
@@ -370,7 +417,10 @@ function mediaTelegramFailure(
 	});
 }
 
-function methodTelegramFailure<Action extends 'sendPoll' | 'sendDice' | 'sendMediaGroup', Fields>(
+function methodTelegramFailure<
+	Action extends 'sendPoll' | 'sendDice' | 'sendMediaGroup' | 'sendRichMessage',
+	Fields
+>(
 	action: Action,
 	fields: Fields,
 	error: unknown

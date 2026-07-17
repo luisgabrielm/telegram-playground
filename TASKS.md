@@ -78,7 +78,7 @@
 16. [ ] **Streaming text draft — `sendMessageDraft`**
     - Stream an ephemeral text preview and finalize it with `sendMessage`.
 
-17. [ ] **Rich message — `sendRichMessage`**
+17. [x] **Rich message — `sendRichMessage`**
     - Start with paragraphs, headings, lists, quotations, code, links, and tables.
 
 18. [ ] **Streaming rich-message draft — `sendRichMessageDraft`**

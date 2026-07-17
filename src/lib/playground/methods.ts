@@ -6,6 +6,7 @@ import SendVoiceMethod from '$lib/components/methods/SendVoiceMethod.svelte';
 import SendPollMethod from '$lib/components/methods/SendPollMethod.svelte';
 import SendDiceMethod from '$lib/components/methods/SendDiceMethod.svelte';
 import SendMediaGroupMethod from '$lib/components/methods/SendMediaGroupMethod.svelte';
+import SendRichMessageMethod from '$lib/components/methods/SendRichMessageMethod.svelte';
 import type { MethodGroup, MethodId, PlaygroundMethod } from './types';
 
 export const methods = [
@@ -64,6 +65,13 @@ export const methods = [
 		apiMethod: 'sendMediaGroup',
 		group: 'Messages',
 		component: SendMediaGroupMethod
+	},
+	{
+		id: 'sendRichMessage',
+		label: 'Rich message',
+		apiMethod: 'sendRichMessage',
+		group: 'Messages',
+		component: SendRichMessageMethod
 	}
 ] satisfies PlaygroundMethod[];
 
