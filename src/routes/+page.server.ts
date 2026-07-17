@@ -33,6 +33,10 @@ import { prepareSendContact } from '$lib/server/methods/contact';
 import { prepareSendLocation } from '$lib/server/methods/location';
 import { prepareSendVenue } from '$lib/server/methods/venue';
 import {
+	prepareAnswerCallbackQuery,
+	prepareEditMessageReplyMarkup
+} from '$lib/server/methods/inline-keyboard';
+import {
 	createTelegramClient,
 	getPublicTelegramError,
 	isTelegramConfigured
@@ -514,6 +518,85 @@ export const actions = {
 		} catch (error) {
 			return methodTelegramFailure('sendRichMessage', fields, error);
 		}
+	},
+	answerCallbackQuery: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			callbackQueryId: String(formData.get('callbackQueryId') ?? ''),
+			text: String(formData.get('text') ?? ''),
+			showAlert: String(formData.get('showAlert') === 'true'),
+			url: String(formData.get('url') ?? ''),
+			cacheTime: String(formData.get('cacheTime') ?? '')
+		};
+		const prepared = prepareAnswerCallbackQuery({
+			...fields,
+			showAlert: fields.showAlert === 'true'
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'answerCallbackQuery' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).answerCallbackQuery(prepared.request);
+			return { action: 'answerCallbackQuery' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('answerCallbackQuery', fields, error);
+		}
+	},
+	editMessageReplyMarkup: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			messageId: String(formData.get('messageId') ?? ''),
+			inlineMessageId: String(formData.get('inlineMessageId') ?? ''),
+			replyMarkup: String(formData.get('replyMarkup') ?? '')
+		};
+		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
+		if (!replyMarkup.ok) {
+			return fail(400, {
+				action: 'editMessageReplyMarkup' as const,
+				success: false as const,
+				fields,
+				replyMarkupErrors: replyMarkup.errors
+			});
+		}
+		if (replyMarkup.value && !('inline_keyboard' in replyMarkup.value)) {
+			return fail(400, {
+				action: 'editMessageReplyMarkup' as const,
+				success: false as const,
+				fields,
+				replyMarkupErrors: { replyMarkup: 'Only inline keyboards can be edited.' }
+			});
+		}
+		const prepared = prepareEditMessageReplyMarkup({
+			...fields,
+			replyMarkup: replyMarkup.value
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'editMessageReplyMarkup' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).editMessageReplyMarkup(prepared.request);
+			return {
+				action: 'editMessageReplyMarkup' as const,
+				success: true as const,
+				fields,
+				response
+			};
+		} catch (error) {
+			return methodTelegramFailure('editMessageReplyMarkup', fields, error);
+		}
 	}
 } satisfies Actions;
 
@@ -657,7 +740,9 @@ function methodTelegramFailure<
 		| 'sendRichMessage'
 		| 'sendContact'
 		| 'sendLocation'
-		| 'sendVenue',
+		| 'sendVenue'
+		| 'answerCallbackQuery'
+		| 'editMessageReplyMarkup',
 	Fields
 >(
 	action: Action,

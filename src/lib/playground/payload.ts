@@ -36,6 +36,36 @@ export function buildSendMessagePayload(
 	};
 }
 
+export function buildAnswerCallbackQueryPayload(input: {
+	callbackQueryId: string;
+	text: string;
+	showAlert: boolean;
+	url: string;
+	cacheTime: string;
+}) {
+	return compactPayload({
+		callback_query_id: input.callbackQueryId.trim(),
+		text: optionalText(input.text),
+		show_alert: input.showAlert || undefined,
+		url: optionalText(input.url),
+		cache_time: optionalNumericPreview(input.cacheTime)
+	});
+}
+
+export function buildEditMessageReplyMarkupPayload(input: {
+	chatId: string;
+	messageId: string;
+	inlineMessageId: string;
+	replyMarkup?: TelegramReplyMarkup;
+}) {
+	return compactPayload({
+		chat_id: optionalText(input.chatId),
+		message_id: optionalNumericPreview(input.messageId),
+		inline_message_id: optionalText(input.inlineMessageId),
+		reply_markup: input.replyMarkup
+	});
+}
+
 export function buildSendRichMessagePayload(input: {
 	chatId: string;
 	blocks: InputRichBlock[];

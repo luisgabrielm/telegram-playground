@@ -17,7 +17,9 @@ export type MethodId =
 	| 'sendPoll'
 	| 'sendDice'
 	| 'sendMediaGroup'
-	| 'sendRichMessage';
+	| 'sendRichMessage'
+	| 'answerCallbackQuery'
+	| 'editMessageReplyMarkup';
 
 type FeedbackBase = {
 	success: boolean;
@@ -28,6 +30,32 @@ type FeedbackBase = {
 export type GetMeFeedback = FeedbackBase & {
 	action: 'getMe';
 	response?: TelegramApiSuccess<TelegramUser> | TelegramApiFailure;
+};
+
+export type AnswerCallbackQueryFeedback = FeedbackBase & {
+	action: 'answerCallbackQuery';
+	response?: TelegramApiSuccess<true> | TelegramApiFailure;
+	fields?: {
+		callbackQueryId?: string;
+		text?: string;
+		showAlert?: string;
+		url?: string;
+		cacheTime?: string;
+	};
+	fieldErrors?: Record<string, string>;
+};
+
+export type EditMessageReplyMarkupFeedback = FeedbackBase & {
+	action: 'editMessageReplyMarkup';
+	response?: TelegramApiSuccess<TelegramMessage | true> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		messageId?: string;
+		inlineMessageId?: string;
+		replyMarkup?: string;
+	};
+	fieldErrors?: Record<string, string>;
+	replyMarkupErrors?: Record<string, string>;
 };
 
 export type SendMessageFeedback = FeedbackBase & {
@@ -201,6 +229,8 @@ export type VenueFeedback = FeedbackBase & {
 
 export type MethodFeedback =
 	| GetMeFeedback
+	| AnswerCallbackQueryFeedback
+	| EditMessageReplyMarkupFeedback
 	| SendMessageFeedback
 	| MediaFeedback
 	| PollFeedback
@@ -220,7 +250,7 @@ export type PlaygroundMethod = {
 	id: MethodId;
 	label: string;
 	apiMethod: string;
-	group: 'Bot' | 'Messages';
+	group: 'Bot' | 'Messages' | 'Inline keyboards';
 	component: Component<MethodComponentProps>;
 };
 

@@ -17,9 +17,15 @@
 		value?: TelegramReplyMarkup;
 		errors?: Record<string, string>;
 		idPrefix?: string;
+		allowedModes?: Mode[];
 	};
 
-	let { value = $bindable(), errors = {}, idPrefix = 'reply-markup' }: Props = $props();
+	let {
+		value = $bindable(),
+		errors = {},
+		idPrefix = 'reply-markup',
+		allowedModes = ['none', 'inline', 'reply', 'remove', 'force']
+	}: Props = $props();
 	let nextId = 0;
 	let mode = $state<Mode>(getMode(value));
 	let inlineRows = $state<InlineRow[]>(readInlineRows(value));
@@ -229,13 +235,13 @@
 
 	<fieldset class="mode-picker">
 		<legend>Behavior</legend>
-		{#each [
+		{#each ([
 			['none', 'None'],
 			['inline', 'Inline keyboard'],
 			['reply', 'Reply keyboard'],
 			['remove', 'Remove keyboard'],
 			['force', 'Force reply']
-		] as option (option[0])}
+		] as const).filter((option) => allowedModes.includes(option[0])) as option (option[0])}
 			<label>
 				<input
 					type="radio"

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+	buildAnswerCallbackQueryPayload,
+	buildEditMessageReplyMarkupPayload,
 	buildAudioAnimationPayload,
 	buildMediaGroupPayload,
 	buildMediaPayload,
@@ -13,6 +15,31 @@ import {
 } from './payload';
 
 describe('request payload previews', () => {
+	it('builds callback answer and keyboard edit payloads', () => {
+		expect(
+			buildAnswerCallbackQueryPayload({
+				callbackQueryId: ' query-1 ',
+				text: 'Done',
+				showAlert: true,
+				url: '',
+				cacheTime: '10'
+			})
+		).toEqual({ callback_query_id: 'query-1', text: 'Done', show_alert: true, cache_time: 10 });
+
+		expect(
+			buildEditMessageReplyMarkupPayload({
+				chatId: '123',
+				messageId: '42',
+				inlineMessageId: '',
+				replyMarkup: { inline_keyboard: [[{ text: 'Done', callback_data: 'done' }]] }
+			})
+		).toEqual({
+			chat_id: '123',
+			message_id: 42,
+			reply_markup: { inline_keyboard: [[{ text: 'Done', callback_data: 'done' }]] }
+		});
+	});
+
 	it('uses Telegram field names for text messages', () => {
 		expect(buildSendMessagePayload(' 123 ', 'Hello')).toEqual({
 			chat_id: '123',

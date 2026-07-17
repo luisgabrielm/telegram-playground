@@ -11,6 +11,38 @@ import { TelegramClient, TelegramClientError, getPublicTelegramError } from './t
 const TOKEN = '123456789:test-token';
 
 describe('TelegramClient', () => {
+	it('answers callback queries with the exact Telegram payload', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true, result: true }));
+		const client = new TelegramClient(TOKEN, fetcher);
+
+		await client.answerCallbackQuery({ callback_query_id: 'query-1', text: 'Done' });
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/answerCallbackQuery`,
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ callback_query_id: 'query-1', text: 'Done' })
+			})
+		);
+	});
+
+	it('edits an inline keyboard with the exact Telegram payload', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true, result: true }));
+		const client = new TelegramClient(TOKEN, fetcher);
+		const request = {
+			chat_id: '123',
+			message_id: 42,
+			reply_markup: { inline_keyboard: [[{ text: 'Done', callback_data: 'done' }]] }
+		};
+
+		await client.editMessageReplyMarkup(request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/editMessageReplyMarkup`,
+			expect.objectContaining({ method: 'POST', body: JSON.stringify(request) })
+		);
+	});
+
 	it('calls getMe and returns the bot identity', async () => {
 		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
 			jsonResponse({

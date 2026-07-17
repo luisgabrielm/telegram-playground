@@ -21,6 +21,10 @@ import type { PreparedSendVideoNoteRequest } from './methods/video-note';
 import type { PreparedSendContact } from './methods/contact';
 import type { PreparedSendLocation } from './methods/location';
 import type { PreparedSendVenue } from './methods/venue';
+import type {
+	AnswerCallbackQueryRequest,
+	EditMessageReplyMarkupRequest
+} from './methods/inline-keyboard';
 
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org';
 
@@ -40,7 +44,9 @@ type TelegramMethod =
 	| 'sendPoll'
 	| 'sendDice'
 	| 'sendMediaGroup'
-	| 'sendRichMessage';
+	| 'sendRichMessage'
+	| 'answerCallbackQuery'
+	| 'editMessageReplyMarkup';
 type PreparedSendPollRequest = Extract<PreparedSendPoll, { ok: true }>['request'];
 type PreparedSendContactRequest = Extract<PreparedSendContact, { ok: true }>['request'];
 type PreparedSendLocationRequest = Extract<PreparedSendLocation, { ok: true }>['request'];
@@ -162,6 +168,18 @@ export class TelegramClient {
 		request: PreparedSendRichMessageRequest
 	): Promise<TelegramApiSuccess<TelegramMessage>> {
 		return this.#sendPrepared<TelegramMessage>(request);
+	}
+
+	answerCallbackQuery(
+		request: AnswerCallbackQueryRequest
+	): Promise<TelegramApiSuccess<true>> {
+		return this.#request<true>('answerCallbackQuery', request);
+	}
+
+	editMessageReplyMarkup(
+		request: EditMessageReplyMarkupRequest
+	): Promise<TelegramApiSuccess<TelegramMessage | true>> {
+		return this.#request<TelegramMessage | true>('editMessageReplyMarkup', request);
 	}
 
 	#sendPrepared<T>(request: PreparedRequest) {
