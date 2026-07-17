@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import UpdateInspector from '$lib/components/playground/UpdateInspector.svelte';
 	import { methodGroups, methods, isMethodId } from '$lib/playground/methods';
 	import type { MethodFeedback, MethodId } from '$lib/playground/types';
 	import type { PageProps } from './$types';
@@ -66,12 +67,17 @@
 		</aside>
 
 		<main>
-			{#each methods as method (method.id)}
-				{@const MethodComponent = method.component}
-				<div hidden={activeMethod !== method.id}>
-					<MethodComponent configured={data.configured} initialFeedback={initialForm} />
+			<div class="main-workspace">
+				<div class="method-workspace">
+					{#each methods as method (method.id)}
+						{@const MethodComponent = method.component}
+						<div hidden={activeMethod !== method.id}>
+							<MethodComponent configured={data.configured} initialFeedback={initialForm} />
+						</div>
+					{/each}
 				</div>
-			{/each}
+				<UpdateInspector />
+			</div>
 		</main>
 	</div>
 </div>
@@ -263,6 +269,25 @@
 	main {
 		min-width: 0;
 		padding: 2rem clamp(1.25rem, 3vw, 3rem) 3rem;
+	}
+
+	.main-workspace {
+		display: grid;
+		max-width: 1500px;
+		margin: 0 auto;
+		grid-template-columns: minmax(40rem, 1fr) minmax(19rem, 24rem);
+		gap: 1.25rem;
+		align-items: start;
+	}
+
+	.method-workspace {
+		min-width: 0;
+	}
+
+	@media (max-width: 1220px) {
+		.main-workspace {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (max-width: 850px) {

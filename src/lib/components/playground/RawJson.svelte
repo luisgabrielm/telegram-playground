@@ -1,9 +1,15 @@
 <script lang="ts">
-	let { value }: { value: unknown } = $props();
+	type Props = {
+		value: unknown;
+		summary?: string;
+		open?: boolean;
+	};
+
+	let { value, summary = 'Raw JSON', open = false }: Props = $props();
 </script>
 
-<details>
-	<summary>Raw JSON</summary>
+<details {open}>
+	<summary>{summary}</summary>
 	<pre>{JSON.stringify(value, null, 2)}</pre>
 </details>
 
