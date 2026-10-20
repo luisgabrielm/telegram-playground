@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions, TelegramMessageOptionsPayload } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 
 export const TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
@@ -8,6 +13,7 @@ export interface SendDocumentFields {
 	document: string | File | null;
 	caption: string;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendDocumentFieldErrors {
@@ -16,7 +22,7 @@ export interface SendDocumentFieldErrors {
 	caption?: string;
 }
 
-export interface SendDocumentJsonBody {
+export interface SendDocumentJsonBody extends TelegramMessageOptionsPayload {
 	chat_id: string;
 	document: string;
 	caption?: string;
@@ -64,7 +70,10 @@ export function validateSendDocument(fields: SendDocumentFields) {
 		errors.document = 'Document uploads can contain at most 50 MB.';
 	}
 
-	if (fields.caption.length > TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH) {
+	if (
+		!fields.messageOptions?.parseMode &&
+		fields.caption.length > TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH
+	) {
 		errors.caption = `Captions can contain at most ${TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
 	}
 
@@ -93,12 +102,12 @@ export function prepareSendDocument(fields: SendDocumentFields): SendDocumentPre
 			request: {
 				method: 'sendDocument',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: chatId,
 					document: fields.document.trim(),
 					...(caption === undefined ? {} : { caption }),
 					...(fields.replyMarkup === undefined ? {} : { reply_markup: fields.replyMarkup })
-				}
+				}, fields.messageOptions ?? {})
 			}
 		};
 	}
@@ -113,6 +122,7 @@ export function prepareSendDocument(fields: SendDocumentFields): SendDocumentPre
 	if (fields.replyMarkup !== undefined) {
 		body.set('reply_markup', JSON.stringify(fields.replyMarkup));
 	}
+	appendMessageOptionsToFormData(body, fields.messageOptions ?? {});
 
 	return {
 		ok: true,

@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 
 export const TELEGRAM_VIDEO_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
@@ -19,6 +24,7 @@ export interface SendVideoInput {
 	supportsStreaming?: boolean;
 	hasSpoiler?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendVideoFieldErrors {
@@ -68,7 +74,7 @@ export function validateSendVideo(input: SendVideoInput) {
 		errors.video = 'Choose an MPEG-4 video file.';
 	}
 
-	if ((input.caption?.length ?? 0) > TELEGRAM_VIDEO_CAPTION_MAX_LENGTH) {
+	if (!input.messageOptions?.parseMode && (input.caption?.length ?? 0) > TELEGRAM_VIDEO_CAPTION_MAX_LENGTH) {
 		errors.caption = 'Captions can contain at most 1,024 characters.';
 	}
 
@@ -110,12 +116,12 @@ export function prepareSendVideo(input: SendVideoInput): SendVideoPreparation {
 			request: {
 				method: 'sendVideo',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: input.chatId.trim(),
 					video: input.video.value.trim(),
 					...common,
 					...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
-				}
+				}, input.messageOptions ?? {})
 			}
 		};
 	}
@@ -126,6 +132,7 @@ export function prepareSendVideo(input: SendVideoInput): SendVideoPreparation {
 	appendMultipartValues(body, common);
 	if (input.thumbnail) body.set('thumbnail', input.thumbnail);
 	if (input.replyMarkup) body.set('reply_markup', JSON.stringify(input.replyMarkup));
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {});
 
 	return { ok: true, request: { method: 'sendVideo', encoding: 'multipart', body } };
 }

@@ -20,6 +20,11 @@ const regularPoll: SendPollInput = {
 };
 
 describe('prepareSendPoll', () => {
+	it('serializes reply options without applying poll parse mode', () => {
+		const result = prepareSendPoll({ ...regularPoll, messageOptions: { parseMode: 'MarkdownV2', replyParameters: { messageId: 4 } } });
+		expect(result.ok && result.request.body).toMatchObject({ reply_parameters: { message_id: 4 } });
+		expect(result.ok && result.request.body).not.toHaveProperty('parse_mode');
+	});
 	it('builds a regular poll and trims only the chat identifier', () => {
 		expect(
 			prepareSendPoll({

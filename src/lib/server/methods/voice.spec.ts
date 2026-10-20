@@ -82,6 +82,14 @@ describe('validateSendVoice', () => {
 			expect(validateSendVoice(input)).toEqual({ valid: true, errors: {} });
 		}
 	});
+
+	it('defers formatted caption length validation to Telegram', () => {
+		expect(validateSendVoice({
+			chatId: '123', voice: { kind: 'reference', value: 'file-id' },
+			caption: `<b>${'x'.repeat(TELEGRAM_VOICE_CAPTION_MAX_LENGTH)}</b>`,
+			messageOptions: { parseMode: 'HTML' }
+		})).toEqual({ valid: true, errors: {} });
+	});
 });
 
 describe('prepareSendVoice', () => {
@@ -165,6 +173,35 @@ describe('prepareSendVoice', () => {
 			throw new Error('Expected multipart');
 		}
 		expect(multipartResult.request.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
+	});
+
+	it('adds parse mode, reply, and delivery options in both encodings', () => {
+		const messageOptions = {
+			parseMode: 'HTML' as const,
+			replyParameters: { messageId: 9, quote: 'memo', quotePosition: 2 },
+			disableNotification: true as const
+		};
+		const json = prepareSendVoice({
+			chatId: '42', voice: { kind: 'reference', value: 'file-id' }, messageOptions
+		});
+		const multipart = prepareSendVoice({
+			chatId: '42', voice: { kind: 'upload', file: new File(['voice'], 'voice.ogg') }, messageOptions
+		});
+
+		expect(json.ok).toBe(true);
+		if (!json.ok || json.request.encoding !== 'json') throw new Error('Expected JSON');
+		expect(json.request.body).toMatchObject({
+			parse_mode: 'HTML',
+			reply_parameters: { message_id: 9, quote: 'memo', quote_position: 2 },
+			disable_notification: true
+		});
+		expect(multipart.ok).toBe(true);
+		if (!multipart.ok || multipart.request.encoding !== 'multipart') throw new Error('Expected multipart');
+		expect(multipart.request.body.get('parse_mode')).toBe('HTML');
+		expect(multipart.request.body.get('reply_parameters')).toBe(
+			'{"message_id":9,"quote":"memo","quote_position":2}'
+		);
+		expect(multipart.request.body.get('disable_notification')).toBe('true');
 	});
 
 	it('omits blank optional values while preserving an explicit zero duration', () => {

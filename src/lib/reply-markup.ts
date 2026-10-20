@@ -1,16 +1,23 @@
-export interface InlineKeyboardUrlButton {
+export type InlineKeyboardButtonStyle = 'primary' | 'success' | 'danger';
+
+export interface InlineKeyboardButtonAppearance {
+	style?: InlineKeyboardButtonStyle;
+	icon_custom_emoji_id?: string;
+}
+
+export interface InlineKeyboardUrlButton extends InlineKeyboardButtonAppearance {
 	text: string;
 	url: string;
 }
 
-export interface InlineKeyboardCopyTextButton {
+export interface InlineKeyboardCopyTextButton extends InlineKeyboardButtonAppearance {
 	text: string;
 	copy_text: {
 		text: string;
 	};
 }
 
-export interface InlineKeyboardCallbackButton {
+export interface InlineKeyboardCallbackButton extends InlineKeyboardButtonAppearance {
 	text: string;
 	callback_data: string;
 }

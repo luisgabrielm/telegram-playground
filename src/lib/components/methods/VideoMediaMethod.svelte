@@ -3,6 +3,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { untrack } from 'svelte';
 	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
@@ -11,20 +12,14 @@
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
+	import { createMessageOptionsValue } from '$lib/message-options';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
-	import type { MethodComponentProps } from '$lib/playground/types';
+	import type { MediaFeedback, MethodComponentProps } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 
 	type Action = 'sendVideo' | 'sendVideoNote';
-	type VideoFeedback = {
-		action: Action;
-		success: boolean;
-		error?: string;
-		response?: unknown;
-		fields?: Record<string, string | undefined>;
-		fieldErrors?: Record<string, string | undefined>;
-		replyMarkupErrors?: Record<string, string>;
-	};
+	type VideoFeedback = MediaFeedback & { action: Action };
 	type Props = MethodComponentProps & { kind: 'video' | 'videoNote' };
 
 	let { initialFeedback, kind }: Props = $props();
@@ -50,10 +45,14 @@
 	let length = $state(initial?.fields?.length ?? '');
 	let supportsStreaming = $state(initial?.fields?.supportsStreaming === 'true');
 	let hasSpoiler = $state(initial?.fields?.hasSpoiler === 'true');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
 		restoreReplyMarkup(initial?.fields?.replyMarkup)
 	);
 	const mediaField = isNote ? 'videoNote' : 'video';
+	const mediaError = $derived(
+		(feedback?.fieldErrors as Record<string, string | undefined> | undefined)?.[mediaField]
+	);
 	const mediaFormName = isNote ? 'videoNoteFile' : 'videoFile';
 	const referenceFormName = isNote ? 'videoNoteReference' : 'videoReference';
 	const sentMessage = $derived(messageResult(feedback?.response));
@@ -94,6 +93,7 @@
 		if (!isNote && supportsStreaming) payload.supports_streaming = true;
 		if (!isNote && hasSpoiler) payload.has_spoiler = true;
 		if (replyMarkup) payload.reply_markup = replyMarkup;
+		Object.assign(payload, buildMessageOptionsPayload(messageOptions, !isNote));
 		return { encoding: sourceType === 'upload' ? ('multipart' as const) : ('json' as const), payload };
 	}
 
@@ -153,13 +153,13 @@
 				</fieldset>
 
 				{#if sourceType === 'reference'}
-					<FormField label={isNote ? 'video_note' : 'video'} inputId={`${action}-reference`} meta="String · required" help={isNote ? 'A reusable Telegram file_id. The API does not accept URLs for video notes.' : 'An HTTP URL or reusable Telegram file_id.'} error={feedback?.fieldErrors?.[mediaField]}>
+					<FormField label={isNote ? 'video_note' : 'video'} inputId={`${action}-reference`} meta="String · required" help={isNote ? 'A reusable Telegram file_id. The API does not accept URLs for video notes.' : 'An HTTP URL or reusable Telegram file_id.'} error={mediaError}>
 						{#snippet children({ describedBy, invalid })}
 							<input id={`${action}-reference`} name={referenceFormName} type="text" placeholder={isNote ? 'Telegram file_id' : 'https://… or file_id'} bind:value={mediaReference} aria-describedby={describedBy} aria-invalid={invalid} />
 						{/snippet}
 					</FormField>
 				{:else}
-					<FormField label={isNote ? 'video_note' : 'video'} inputId={`${action}-file`} meta="File · required · max 50 MB" help="MPEG-4 file sent directly to Telegram and not stored locally." error={feedback?.fieldErrors?.[mediaField]}>
+					<FormField label={isNote ? 'video_note' : 'video'} inputId={`${action}-file`} meta="File · required · max 50 MB" help="MPEG-4 file sent directly to Telegram and not stored locally." error={mediaError}>
 						{#snippet children({ describedBy, invalid })}
 							<input id={`${action}-file`} name={mediaFormName} type="file" accept="video/mp4" onchange={(event) => (mediaFile = event.currentTarget.files?.[0] ?? null)} aria-describedby={describedBy} aria-invalid={invalid} />
 						{/snippet}
@@ -173,7 +173,7 @@
 				{/if}
 
 				{#if !isNote}
-					<FormField label="caption" inputId={`${action}-caption`} meta={`String · optional · ${caption.length.toLocaleString()}/1,024`} metaInvalid={caption.length > 1024} help="Plain text caption; no parse mode is applied." error={feedback?.fieldErrors?.caption}>
+					<FormField label="caption" inputId={`${action}-caption`} meta={`String · optional · ${caption.length.toLocaleString()}/1,024`} metaInvalid={caption.length > 1024} help="Optionally format this caption with the parse mode under Message options." error={feedback?.fieldErrors?.caption}>
 						{#snippet children({ describedBy, invalid })}
 							<textarea id={`${action}-caption`} name="caption" rows="4" bind:value={caption} aria-describedby={describedBy} aria-invalid={invalid}></textarea>
 						{/snippet}
@@ -214,6 +214,7 @@
 				{/if}
 
 				<ReplyMarkupEditor bind:value={replyMarkup} errors={feedback?.replyMarkupErrors} idPrefix={`${action}-reply`} />
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix={`${action}-options`} showParseMode={!isNote} />
 				<PayloadPreview titleId={`${action}-payload-title`} payload={requestPreview.payload} encoding={requestPreview.encoding} />
 				<SubmitButton {pending} />
 			</form>

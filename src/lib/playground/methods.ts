@@ -16,6 +16,7 @@ import SendMediaGroupMethod from '$lib/components/methods/SendMediaGroupMethod.s
 import SendRichMessageMethod from '$lib/components/methods/SendRichMessageMethod.svelte';
 import AnswerCallbackQueryMethod from '$lib/components/methods/AnswerCallbackQueryMethod.svelte';
 import EditMessageReplyMarkupMethod from '$lib/components/methods/EditMessageReplyMarkupMethod.svelte';
+import SetMessageReactionMethod from '$lib/components/methods/SetMessageReactionMethod.svelte';
 import type { MethodGroup, MethodId, PlaygroundMethod } from './types';
 
 export const methods = [
@@ -144,10 +145,22 @@ export const methods = [
 		apiMethod: 'editMessageReplyMarkup',
 		group: 'Inline keyboards',
 		component: EditMessageReplyMarkupMethod
+	},
+	{
+		id: 'setMessageReaction',
+		label: 'Message reaction',
+		apiMethod: 'setMessageReaction',
+		group: 'Formatting and interactions',
+		component: SetMessageReactionMethod
 	}
 ] satisfies PlaygroundMethod[];
 
-const groupLabels: PlaygroundMethod['group'][] = ['Bot', 'Messages', 'Inline keyboards'];
+const groupLabels: PlaygroundMethod['group'][] = [
+	'Bot',
+	'Messages',
+	'Inline keyboards',
+	'Formatting and interactions'
+];
 
 export const methodGroups: MethodGroup[] = groupLabels.map((label) => ({
 	label,

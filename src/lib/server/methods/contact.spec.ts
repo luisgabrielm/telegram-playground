@@ -66,4 +66,15 @@ describe('prepareSendContact', () => {
 			errors: { vcard: 'vCards can contain at most 2,048 UTF-8 bytes.' }
 		});
 	});
+
+	it('serializes reply and delivery options without parse mode', () => {
+		const result = prepareSendContact({
+			chatId: '42', phoneNumber: '+1', firstName: 'Ada',
+			messageOptions: { parseMode: 'HTML', replyParameters: { messageId: 7 }, protectContent: true }
+		});
+		expect(result.ok && result.request.body).toMatchObject({
+			reply_parameters: { message_id: 7 }, protect_content: true
+		});
+		expect(result.ok && result.request.body).not.toHaveProperty('parse_mode');
+	});
 });

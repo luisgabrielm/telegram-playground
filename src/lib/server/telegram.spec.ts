@@ -6,6 +6,8 @@ import { prepareSendDice } from './methods/dice';
 import { prepareSendMediaGroup } from './methods/media-group';
 import { prepareSendPoll } from './methods/poll';
 import { prepareSendRichMessage } from './methods/rich-message';
+import { prepareSendMessage } from './methods/message';
+import { prepareSetMessageReaction } from './methods/reaction';
 import { TelegramClient, TelegramClientError, getPublicTelegramError } from './telegram';
 
 const TOKEN = '123456789:test-token';
@@ -75,7 +77,9 @@ describe('TelegramClient', () => {
 		);
 		const client = new TelegramClient(TOKEN, fetcher);
 
-		const response = await client.sendMessage('-100123', 'Hello from the playground');
+		const prepared = prepareSendMessage({ chatId: '-100123', text: 'Hello from the playground' });
+		if (!prepared.ok) throw new Error('Expected a prepared message request.');
+		const response = await client.sendMessage(prepared.request);
 
 		expect(response.result.message_id).toBe(7);
 		expect(fetcher).toHaveBeenCalledWith(
@@ -99,12 +103,35 @@ describe('TelegramClient', () => {
 			inline_keyboard: [[{ text: 'Open', url: 'https://example.com' }]]
 		};
 
-		await client.sendMessage('123', 'Choose', replyMarkup);
+		const prepared = prepareSendMessage({ chatId: '123', text: 'Choose', replyMarkup });
+		if (!prepared.ok) throw new Error('Expected a prepared message request.');
+		await client.sendMessage(prepared.request);
 
 		expect(fetcher).toHaveBeenCalledWith(
 			`https://api.telegram.org/bot${TOKEN}/sendMessage`,
 			expect.objectContaining({
 				body: JSON.stringify({ chat_id: '123', text: 'Choose', reply_markup: replyMarkup })
+			})
+		);
+	});
+
+	it('sends the exact prepared reaction body', async () => {
+		const fetcher = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ ok: true, result: true }));
+		const client = new TelegramClient(TOKEN, fetcher);
+		const prepared = prepareSetMessageReaction({
+			chatId: '123', messageId: '42', reactionKind: 'emoji', emoji: '👍', isBig: true
+		});
+		if (!prepared.ok) throw new Error('Expected a prepared reaction request.');
+
+		await client.setMessageReaction(prepared.request);
+
+		expect(fetcher).toHaveBeenCalledWith(
+			`https://api.telegram.org/bot${TOKEN}/setMessageReaction`,
+			expect.objectContaining({
+				body: JSON.stringify({
+					chat_id: '123', message_id: 42,
+					reaction: [{ type: 'emoji', emoji: '👍' }], is_big: true
+				})
 			})
 		);
 	});

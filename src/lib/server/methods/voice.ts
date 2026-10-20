@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions, TelegramMessageOptionsPayload } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 
 export const TELEGRAM_VOICE_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_VOICE_MAX_BYTES = 50 * 1024 * 1024;
@@ -13,6 +18,7 @@ export interface SendVoiceInput {
 	caption?: string;
 	duration?: number;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendVoiceFieldErrors {
@@ -45,7 +51,7 @@ export interface TelegramVoiceMessage {
 	caption?: string;
 }
 
-export interface SendVoiceJsonBody {
+export interface SendVoiceJsonBody extends TelegramMessageOptionsPayload {
 	chat_id: string;
 	voice: string;
 	caption?: string;
@@ -86,7 +92,10 @@ export function validateSendVoice(input: SendVoiceInput) {
 		errors.voice = 'Voice uploads can contain at most 50 MB.';
 	}
 
-	if ((input.caption?.length ?? 0) > TELEGRAM_VOICE_CAPTION_MAX_LENGTH) {
+	if (
+		!input.messageOptions?.parseMode &&
+		(input.caption?.length ?? 0) > TELEGRAM_VOICE_CAPTION_MAX_LENGTH
+	) {
 		errors.caption = `Captions can contain at most ${TELEGRAM_VOICE_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
 	}
 
@@ -124,13 +133,13 @@ export function prepareSendVoice(input: SendVoiceInput): SendVoicePreparation {
 			request: {
 				method: 'sendVoice',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: chatId,
 					voice: input.voice.value.trim(),
 					...(caption === undefined ? {} : { caption }),
 					...(input.duration === undefined ? {} : { duration: input.duration }),
 					...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-				}
+				}, input.messageOptions ?? {})
 			}
 		};
 	}
@@ -149,6 +158,7 @@ export function prepareSendVoice(input: SendVoiceInput): SendVoicePreparation {
 	if (input.replyMarkup !== undefined) {
 		body.set('reply_markup', JSON.stringify(input.replyMarkup));
 	}
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {});
 
 	return {
 		ok: true,

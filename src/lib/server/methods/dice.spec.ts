@@ -47,6 +47,11 @@ describe('prepareSendDice', () => {
 		});
 	});
 
+	it('serializes delivery options', () => {
+		const result = prepareSendDice({ chatId: '42', messageOptions: { disableNotification: true, protectContent: true } });
+		expect(result.ok && result.request.body).toMatchObject({ disable_notification: true, protect_content: true });
+	});
+
 	it.each(TELEGRAM_DICE_EMOJIS)('prepares a request for %s', (emoji) => {
 		const result = prepareSendDice({ chatId: '@channel', emoji });
 

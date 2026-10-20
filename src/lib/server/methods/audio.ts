@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 
 export const TELEGRAM_AUDIO_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_AUDIO_MAX_BYTES = 50 * 1024 * 1024;
@@ -17,6 +22,7 @@ export interface SendAudioInput {
 	title?: string;
 	thumbnail?: File;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendAudioFieldErrors {
@@ -58,7 +64,7 @@ export function validateSendAudio(input: SendAudioInput) {
 		errors.audio = 'Audio uploads can contain at most 50 MB.';
 	}
 
-	if ((input.caption?.length ?? 0) > TELEGRAM_AUDIO_CAPTION_MAX_LENGTH) {
+	if (!input.messageOptions?.parseMode && (input.caption?.length ?? 0) > TELEGRAM_AUDIO_CAPTION_MAX_LENGTH) {
 		errors.caption = `Captions can contain at most ${TELEGRAM_AUDIO_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
 	}
 	if (input.duration !== undefined && (!Number.isSafeInteger(input.duration) || input.duration < 0)) {
@@ -95,7 +101,7 @@ export function prepareSendAudio(input: SendAudioInput): SendAudioPreparation {
 			request: {
 				method: 'sendAudio',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: input.chatId.trim(),
 					audio: input.audio.value.trim(),
 					...(common.caption ? { caption: common.caption } : {}),
@@ -103,7 +109,7 @@ export function prepareSendAudio(input: SendAudioInput): SendAudioPreparation {
 					...(common.performer ? { performer: common.performer } : {}),
 					...(common.title ? { title: common.title } : {}),
 					...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
-				}
+				}, input.messageOptions ?? {})
 			}
 		};
 	}
@@ -117,6 +123,7 @@ export function prepareSendAudio(input: SendAudioInput): SendAudioPreparation {
 	setOptional(body, 'title', common.title);
 	if (input.thumbnail) body.set('thumbnail', input.thumbnail);
 	if (input.replyMarkup) body.set('reply_markup', JSON.stringify(input.replyMarkup));
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {});
 
 	return { ok: true, request: { method: 'sendAudio', encoding: 'multipart', body } };
 }

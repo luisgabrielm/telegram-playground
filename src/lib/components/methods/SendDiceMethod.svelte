@@ -6,12 +6,15 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildSendDicePayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { DiceFeedback, MethodComponentProps } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
@@ -36,8 +39,12 @@
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
 		restoreReplyMarkup(initial?.fields?.replyMarkup)
 	);
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	const sentDice = $derived(diceResult(feedback?.response));
-	const requestPayload = $derived(buildSendDicePayload(chatId, emoji, replyMarkup));
+	const requestPayload = $derived({
+		...buildSendDicePayload(chatId, emoji, replyMarkup),
+		...buildMessageOptionsPayload(messageOptions, false)
+	});
 
 	const enhanceForm: SubmitFunction = () => {
 		pending = true;
@@ -136,6 +143,7 @@
 					errors={feedback?.replyMarkupErrors}
 					idPrefix="send-dice-reply"
 				/>
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix="send-dice-options" showParseMode={false} />
 
 				<PayloadPreview titleId="send-dice-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />

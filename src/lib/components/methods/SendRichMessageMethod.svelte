@@ -6,12 +6,15 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildSendRichMessagePayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { MethodComponentProps, RichMessageFeedback } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
@@ -46,15 +49,19 @@
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
 		restoreReplyMarkup(initial?.fields?.replyMarkup)
 	);
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	const blocks = $derived(drafts.map(toInputBlock));
 	const serializedBlocks = $derived(JSON.stringify(blocks));
 	const requestPayload = $derived(
-		buildSendRichMessagePayload({
+		({
+			...buildSendRichMessagePayload({
 			chatId,
 			blocks,
 			isRtl,
 			skipEntityDetection,
 			replyMarkup
+			}),
+			...buildMessageOptionsPayload(messageOptions, false)
 		})
 	);
 	const sentMessage = $derived(messageResult(feedback?.response));
@@ -336,6 +343,7 @@
 				</div>
 
 				<ReplyMarkupEditor bind:value={replyMarkup} errors={feedback?.replyMarkupErrors} idPrefix="send-rich-message-reply" />
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix="send-rich-message-options" showParseMode={false} />
 				<PayloadPreview titleId="send-rich-message-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />
 			</form>

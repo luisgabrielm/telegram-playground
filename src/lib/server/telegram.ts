@@ -6,7 +6,7 @@ import type {
 	TelegramMessage,
 	TelegramUser
 } from '$lib/telegram';
-import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { PreparedSendMessageRequest } from './methods/message';
 import type { PreparedSendDocumentRequest } from './methods/document';
 import type { PreparedSendPhotoRequest, TelegramPhotoMessage } from './methods/photo';
 import type { PreparedSendVoiceRequest, TelegramVoiceMessage } from './methods/voice';
@@ -25,6 +25,7 @@ import type {
 	AnswerCallbackQueryRequest,
 	EditMessageReplyMarkupRequest
 } from './methods/inline-keyboard';
+import type { SetMessageReactionRequest } from './methods/reaction';
 
 const TELEGRAM_API_BASE_URL = 'https://api.telegram.org';
 
@@ -46,12 +47,14 @@ type TelegramMethod =
 	| 'sendMediaGroup'
 	| 'sendRichMessage'
 	| 'answerCallbackQuery'
-	| 'editMessageReplyMarkup';
+	| 'editMessageReplyMarkup'
+	| 'setMessageReaction';
 type PreparedSendPollRequest = Extract<PreparedSendPoll, { ok: true }>['request'];
 type PreparedSendContactRequest = Extract<PreparedSendContact, { ok: true }>['request'];
 type PreparedSendLocationRequest = Extract<PreparedSendLocation, { ok: true }>['request'];
 type PreparedSendVenueRequest = Extract<PreparedSendVenue, { ok: true }>['request'];
 type PreparedRequest =
+	| PreparedSendMessageRequest
 	| PreparedSendPhotoRequest
 	| PreparedSendDocumentRequest
 	| PreparedSendVoiceRequest
@@ -65,7 +68,8 @@ type PreparedRequest =
 	| PreparedSendAnimationRequest
 	| PreparedSendContactRequest
 	| PreparedSendLocationRequest
-	| PreparedSendVenueRequest;
+	| PreparedSendVenueRequest
+	| SetMessageReactionRequest;
 
 export class TelegramClientError extends Error {
 	readonly response?: TelegramApiFailure;
@@ -98,16 +102,8 @@ export class TelegramClient {
 		return this.#request<TelegramUser>('getMe');
 	}
 
-	sendMessage(
-		chatId: string,
-		text: string,
-		replyMarkup?: TelegramReplyMarkup
-	): Promise<TelegramApiSuccess<TelegramMessage>> {
-		return this.#request<TelegramMessage>('sendMessage', {
-			chat_id: chatId,
-			text,
-			...(replyMarkup === undefined ? {} : { reply_markup: replyMarkup })
-		});
+	sendMessage(request: PreparedSendMessageRequest): Promise<TelegramApiSuccess<TelegramMessage>> {
+		return this.#sendPrepared<TelegramMessage>(request);
 	}
 
 	sendPhoto(request: PreparedSendPhotoRequest): Promise<TelegramApiSuccess<TelegramPhotoMessage>> {
@@ -180,6 +176,10 @@ export class TelegramClient {
 		request: EditMessageReplyMarkupRequest
 	): Promise<TelegramApiSuccess<TelegramMessage | true>> {
 		return this.#request<TelegramMessage | true>('editMessageReplyMarkup', request);
+	}
+
+	setMessageReaction(request: SetMessageReactionRequest): Promise<TelegramApiSuccess<true>> {
+		return this.#sendPrepared<true>(request);
 	}
 
 	#sendPrepared<T>(request: PreparedRequest) {

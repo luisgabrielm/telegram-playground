@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions, TelegramMessageOptionsPayload } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 
 export const TELEGRAM_PHOTO_CAPTION_MAX_LENGTH = 1024;
 export const TELEGRAM_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
@@ -13,6 +18,7 @@ export interface SendPhotoInput {
 	caption?: string;
 	hasSpoiler?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendPhotoFieldErrors {
@@ -54,7 +60,7 @@ export type PreparedSendPhotoRequest =
 				caption?: string;
 				has_spoiler?: boolean;
 				reply_markup?: TelegramReplyMarkup;
-			};
+			} & TelegramMessageOptionsPayload;
 	  }
 	| {
 			method: 'sendPhoto';
@@ -93,7 +99,10 @@ export function validateSendPhoto(input: SendPhotoInput) {
 		}
 	}
 
-	if ((input.caption?.length ?? 0) > TELEGRAM_PHOTO_CAPTION_MAX_LENGTH) {
+	if (
+		!input.messageOptions?.parseMode &&
+		(input.caption?.length ?? 0) > TELEGRAM_PHOTO_CAPTION_MAX_LENGTH
+	) {
 		errors.caption = `Captions can contain at most ${TELEGRAM_PHOTO_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
 	}
 
@@ -119,16 +128,20 @@ export function prepareSendPhotoRequest(input: SendPhotoInput): PreparedSendPhot
 	const caption = input.caption?.trim() ? input.caption : undefined;
 
 	if (input.photo.kind === 'reference') {
-		return {
-			method: 'sendPhoto',
-			encoding: 'json',
-			body: {
+		const body = appendMessageOptionsToJson(
+			{
 				chat_id: chatId,
 				photo: input.photo.value.trim(),
 				...(caption === undefined ? {} : { caption }),
 				...(input.hasSpoiler ? { has_spoiler: true } : {}),
 				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-			}
+			},
+			input.messageOptions ?? {}
+		);
+		return {
+			method: 'sendPhoto',
+			encoding: 'json',
+			body
 		};
 	}
 
@@ -145,6 +158,7 @@ export function prepareSendPhotoRequest(input: SendPhotoInput): PreparedSendPhot
 	if (input.replyMarkup !== undefined) {
 		body.set('reply_markup', JSON.stringify(input.replyMarkup));
 	}
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {});
 
 	return {
 		method: 'sendPhoto',

@@ -6,12 +6,15 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildSendVenuePayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { MethodComponentProps, VenueFeedback } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
@@ -29,8 +32,12 @@
 	let foursquareType = $state(initial?.fields?.foursquareType ?? '');
 	let googlePlaceId = $state(initial?.fields?.googlePlaceId ?? '');
 	let googlePlaceType = $state(initial?.fields?.googlePlaceType ?? '');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(restoreReplyMarkup(initial?.fields?.replyMarkup));
-	const requestPayload = $derived(buildSendVenuePayload({ chatId, latitude, longitude, title, address, foursquareId, foursquareType, googlePlaceId, googlePlaceType, replyMarkup }));
+	const requestPayload = $derived({
+		...buildSendVenuePayload({ chatId, latitude, longitude, title, address, foursquareId, foursquareType, googlePlaceId, googlePlaceType, replyMarkup }),
+		...buildMessageOptionsPayload(messageOptions, false)
+	});
 	const sentMessage = $derived(messageResult(feedback?.response));
 
 	const enhanceForm: SubmitFunction = () => {
@@ -98,6 +105,7 @@
 					</div>
 				</section>
 				<ReplyMarkupEditor bind:value={replyMarkup} errors={feedback?.replyMarkupErrors} idPrefix="send-venue-reply" />
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix="send-venue-options" showParseMode={false} />
 				<PayloadPreview titleId="send-venue-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />
 			</form>

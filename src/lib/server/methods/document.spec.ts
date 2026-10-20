@@ -49,6 +49,14 @@ describe('validateSendDocument', () => {
 
 		expect(result).toEqual({ valid: true, errors: {} });
 	});
+
+	it('defers formatted caption length validation to Telegram', () => {
+		expect(validateSendDocument({
+			chatId: '123', document: 'file-id',
+			caption: `<b>${'x'.repeat(TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH)}</b>`,
+			messageOptions: { parseMode: 'HTML' }
+		})).toEqual({ valid: true, errors: {} });
+	});
 });
 
 describe('prepareSendDocument', () => {
@@ -119,6 +127,36 @@ describe('prepareSendDocument', () => {
 			throw new Error('Expected multipart');
 		}
 		expect(multipartResult.request.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
+	});
+
+	it('adds caption formatting and delivery options to JSON and multipart requests', () => {
+		const messageOptions = {
+			parseMode: 'MarkdownV2' as const,
+			replyParameters: { messageId: 21 },
+			protectContent: true as const,
+			disableNotification: true as const,
+			messageEffectId: 'sparkle'
+		};
+		const json = prepareSendDocument({
+			chatId: '42', document: 'file-id', caption: '*report*', messageOptions
+		});
+		const multipart = prepareSendDocument({
+			chatId: '42', document: new File(['body'], 'report.pdf'), caption: '*report*', messageOptions
+		});
+
+		expect(json.ok).toBe(true);
+		if (!json.ok || json.request.encoding !== 'json') throw new Error('Expected JSON');
+		expect(json.request.body).toMatchObject({
+			parse_mode: 'MarkdownV2', reply_parameters: { message_id: 21 },
+			protect_content: true, disable_notification: true, message_effect_id: 'sparkle'
+		});
+		expect(multipart.ok).toBe(true);
+		if (!multipart.ok || multipart.request.encoding !== 'multipart') throw new Error('Expected multipart');
+		expect(multipart.request.body.get('parse_mode')).toBe('MarkdownV2');
+		expect(multipart.request.body.get('reply_parameters')).toBe('{"message_id":21}');
+		expect(multipart.request.body.get('protect_content')).toBe('true');
+		expect(multipart.request.body.get('disable_notification')).toBe('true');
+		expect(multipart.request.body.get('message_effect_id')).toBe('sparkle');
 	});
 
 	it('omits a whitespace-only optional caption', () => {

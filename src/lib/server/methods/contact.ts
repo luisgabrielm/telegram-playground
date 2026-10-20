@@ -1,4 +1,6 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import { appendMessageOptionsToJson } from '$lib/server/message-options';
 
 export const TELEGRAM_CONTACT_VCARD_MAX_BYTES = 2048;
 
@@ -9,6 +11,7 @@ export interface SendContactInput {
 	lastName?: string;
 	vcard?: string;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendContactBody {
@@ -40,14 +43,14 @@ export function prepareSendContact(input: SendContactInput): PreparedSendContact
 		ok: true,
 		request: {
 			method: 'sendContact',
-			body: {
+			body: appendMessageOptionsToJson({
 				chat_id: input.chatId.trim(),
 				phone_number: input.phoneNumber.trim(),
 				first_name: input.firstName.trim(),
 				...(input.lastName?.trim() ? { last_name: input.lastName.trim() } : {}),
 				...(input.vcard?.trim() ? { vcard: input.vcard } : {}),
 				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-			}
+			}, input.messageOptions ?? {}, false)
 		}
 	};
 }

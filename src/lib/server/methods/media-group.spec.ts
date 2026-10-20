@@ -112,6 +112,55 @@ describe('validateSendMediaGroup', () => {
 });
 
 describe('prepareSendMediaGroup', () => {
+	it('serializes per-item parse modes and top-level delivery options in JSON', () => {
+		const result = prepareSendMediaGroup({
+			chatId: '123',
+			items: [
+				{ ...photo(), caption: '<b>First</b>', parseMode: 'HTML' },
+				{ ...photo('other'), parseMode: 'MarkdownV2' }
+			],
+			messageOptions: { disableNotification: true, replyParameters: { messageId: 8 } }
+		});
+		expect(result.ok && result.request.encoding === 'json' && result.request.body).toMatchObject({
+			disable_notification: true,
+			reply_parameters: { message_id: 8 },
+			media: [
+				{ caption: '<b>First</b>', parse_mode: 'HTML' },
+				{ media: 'other' }
+			]
+		});
+	});
+
+	it('serializes delivery options in multipart data', () => {
+		const result = prepareSendMediaGroup({
+			chatId: '123',
+			items: [
+				{ type: 'photo', source: { kind: 'upload', file: new Blob(['a']) } },
+				photo('other')
+			],
+			messageOptions: { protectContent: true, messageEffectId: 'effect' }
+		});
+		expect(result.ok && result.request.encoding === 'multipart').toBe(true);
+		if (!result.ok || result.request.encoding !== 'multipart') return;
+		expect(result.request.body.get('protect_content')).toBe('true');
+		expect(result.request.body.get('message_effect_id')).toBe('effect');
+	});
+
+	it('rejects an unsupported per-item parse mode', () => {
+		const result = prepareSendMediaGroup({
+			chatId: '123', items: [{ ...photo(), parseMode: 'Markdown' }, photo('other')]
+		});
+		expect(result).toMatchObject({ ok: false, errors: { 'itemParseMode.0': 'Choose HTML or MarkdownV2.' } });
+	});
+
+	it('leaves post-formatting caption length validation to Telegram', () => {
+		const result = prepareSendMediaGroup({
+			chatId: '123',
+			items: [{ ...photo(), caption: `<b>${'a'.repeat(1025)}</b>`, parseMode: 'HTML' }, photo('other')]
+		});
+		expect(result.ok).toBe(true);
+	});
+
 	it('builds JSON when every item is a URL or Telegram file ID', () => {
 		const result = prepareSendMediaGroup({
 			chatId: '  -100123  ',

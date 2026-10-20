@@ -71,6 +71,16 @@ describe('validateSendPhoto', () => {
 			expect(validateSendPhoto(input)).toEqual({ valid: true, errors: {} });
 		}
 	});
+
+	it('defers formatted caption length validation to Telegram', () => {
+		expect(
+			validateSendPhoto({
+				chatId: '123', photo: { kind: 'reference', value: 'file-id' },
+				caption: `<b>${'x'.repeat(TELEGRAM_PHOTO_CAPTION_MAX_LENGTH)}</b>`,
+				messageOptions: { parseMode: 'HTML' }
+			})
+		).toEqual({ valid: true, errors: {} });
+	});
 });
 
 describe('prepareSendPhotoRequest', () => {
@@ -137,6 +147,58 @@ describe('prepareSendPhotoRequest', () => {
 		expect(multipartRequest.encoding).toBe('multipart');
 		if (multipartRequest.encoding !== 'multipart') throw new Error('Expected multipart');
 		expect(multipartRequest.body.get('reply_markup')).toBe(JSON.stringify(replyMarkup));
+	});
+
+	it('serializes message options identically for JSON and multipart requests', () => {
+		const messageOptions = {
+			parseMode: 'HTML' as const,
+			replyParameters: {
+				messageId: 7,
+				allowSendingWithoutReply: true as const,
+				quote: '<b>quoted</b>',
+				quoteParseMode: 'HTML' as const,
+				quotePosition: 0
+			},
+			protectContent: true as const,
+			disableNotification: true as const,
+			messageEffectId: 'effect-1'
+		};
+		const jsonRequest = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'reference', value: 'file-id' },
+			messageOptions
+		});
+		const multipartRequest = prepareSendPhotoRequest({
+			chatId: '123',
+			photo: { kind: 'upload', file: new Blob(['image'], { type: 'image/png' }) },
+			messageOptions
+		});
+
+		expect(jsonRequest.encoding).toBe('json');
+		if (jsonRequest.encoding !== 'json') throw new Error('Expected JSON');
+		expect(jsonRequest.body).toMatchObject({
+			parse_mode: 'HTML',
+			reply_parameters: {
+				message_id: 7,
+				allow_sending_without_reply: true,
+				quote: '<b>quoted</b>',
+				quote_parse_mode: 'HTML',
+				quote_position: 0
+			},
+			protect_content: true,
+			disable_notification: true,
+			message_effect_id: 'effect-1'
+		});
+
+		expect(multipartRequest.encoding).toBe('multipart');
+		if (multipartRequest.encoding !== 'multipart') throw new Error('Expected multipart');
+		expect(multipartRequest.body.get('parse_mode')).toBe('HTML');
+		expect(JSON.parse(String(multipartRequest.body.get('reply_parameters')))).toEqual(
+			jsonRequest.body.reply_parameters
+		);
+		expect(multipartRequest.body.get('protect_content')).toBe('true');
+		expect(multipartRequest.body.get('disable_notification')).toBe('true');
+		expect(multipartRequest.body.get('message_effect_id')).toBe('effect-1');
 	});
 
 	it('omits a blank optional caption', () => {

@@ -6,6 +6,7 @@
 	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
@@ -14,6 +15,8 @@
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import type { MethodComponentProps, SendMessageFeedback } from '$lib/playground/types';
 	import { buildSendMessagePayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 	import type { TelegramApiFailure, TelegramApiSuccess, TelegramMessage } from '$lib/telegram';
@@ -26,13 +29,17 @@
 	let feedback = $state<SendMessageFeedback | null>(initial);
 	let chatId = $state(initial?.fields?.chatId ?? '');
 	let messageText = $state(initial?.fields?.text ?? '');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
 		restoreReplyMarkup(initial?.fields?.replyMarkup)
 	);
 	let chatIdInput: HTMLInputElement | undefined;
 	let messageTextInput: HTMLTextAreaElement | undefined;
 	const sentMessage = $derived(getResult(feedback?.response));
-	const requestPayload = $derived(buildSendMessagePayload(chatId, messageText, replyMarkup));
+	const requestPayload = $derived({
+		...buildSendMessagePayload(chatId, messageText, replyMarkup),
+		...buildMessageOptionsPayload(messageOptions)
+	});
 
 	const captureChatIdInput: Attachment<HTMLInputElement> = (element) => {
 		chatIdInput = element;
@@ -112,8 +119,8 @@
 					label="text"
 					inputId="messageText"
 					meta={`String · required · ${messageText.length.toLocaleString()}/4,096`}
-					metaInvalid={messageText.length > 4096}
-					help="Sent without a parse mode."
+					metaInvalid={!messageOptions.parseMode && messageText.length > 4096}
+					help="Use Message options to send HTML or MarkdownV2. Telegram validates the markup."
 					error={feedback?.fieldErrors?.text}
 				>
 					{#snippet children({ describedBy, invalid })}
@@ -129,6 +136,12 @@
 						></textarea>
 					{/snippet}
 				</FormField>
+
+				<MessageOptionsEditor
+					bind:value={messageOptions}
+					errors={feedback?.messageOptionsErrors}
+					idPrefix="send-message-options"
+				/>
 
 				<ReplyMarkupEditor
 					bind:value={replyMarkup}

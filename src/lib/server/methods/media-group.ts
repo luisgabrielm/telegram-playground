@@ -1,3 +1,9 @@
+import type { NormalizedMessageOptions, TelegramParseMode } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
+
 export const MEDIA_GROUP_MIN_ITEMS = 2;
 export const MEDIA_GROUP_MAX_ITEMS = 10;
 export const MEDIA_GROUP_CAPTION_MAX_LENGTH = 1024;
@@ -12,11 +18,13 @@ export interface SendMediaGroupItem {
 	type: MediaGroupItemType;
 	source: MediaGroupItemSource;
 	caption?: string;
+	parseMode?: TelegramParseMode | string;
 }
 
 export interface SendMediaGroupInput {
 	chatId: string;
 	items: SendMediaGroupItem[];
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export type MediaGroupFieldErrors = Record<string, string>;
@@ -25,6 +33,7 @@ type TelegramInputMedia = {
 	type: MediaGroupItemType;
 	media: string;
 	caption?: string;
+	parse_mode?: TelegramParseMode;
 };
 
 export type PreparedSendMediaGroupRequest =
@@ -65,7 +74,8 @@ export function prepareSendMediaGroup(input: SendMediaGroupInput): PrepareSendMe
 			item.source.kind === 'reference'
 				? item.source.value.trim()
 				: `attach://media_${index}`,
-		...(item.caption?.trim() ? { caption: item.caption } : {})
+		...(item.caption?.trim() ? { caption: item.caption } : {}),
+		...(item.caption?.trim() && isParseMode(item.parseMode) ? { parse_mode: item.parseMode } : {})
 	}));
 
 	if (!hasUpload) {
@@ -74,7 +84,11 @@ export function prepareSendMediaGroup(input: SendMediaGroupInput): PrepareSendMe
 			request: {
 				method: 'sendMediaGroup',
 				encoding: 'json',
-				body: { chat_id: chatId, media }
+				body: appendMessageOptionsToJson(
+					{ chat_id: chatId, media },
+					input.messageOptions ?? {},
+					false
+				)
 			}
 		};
 	}
@@ -82,6 +96,7 @@ export function prepareSendMediaGroup(input: SendMediaGroupInput): PrepareSendMe
 	const body = new FormData();
 	body.set('chat_id', chatId);
 	body.set('media', JSON.stringify(media));
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {}, false);
 	input.items.forEach((item, index) => {
 		if (item.source.kind !== 'upload') return;
 		body.set(`media_${index}`, item.source.file, normalizedFilename(item.source.filename, item.type));
@@ -116,9 +131,12 @@ export function validateSendMediaGroup(input: SendMediaGroupInput): MediaGroupFi
 			errors[`itemFile.${index}`] = 'Choose a media source.';
 		}
 
-		if ((item.caption?.length ?? 0) > MEDIA_GROUP_CAPTION_MAX_LENGTH) {
+		if (!isParseMode(item.parseMode) && (item.caption?.length ?? 0) > MEDIA_GROUP_CAPTION_MAX_LENGTH) {
 			errors[`itemCaption.${index}`] =
 				`Captions can contain at most ${MEDIA_GROUP_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
+		}
+		if (item.parseMode && !isParseMode(item.parseMode)) {
+			errors[`itemParseMode.${index}`] = 'Choose HTML or MarkdownV2.';
 		}
 	});
 
@@ -130,6 +148,10 @@ export function validateSendMediaGroup(input: SendMediaGroupInput): MediaGroupFi
 	}
 
 	return errors;
+}
+
+function isParseMode(value: string | undefined): value is TelegramParseMode {
+	return value === 'HTML' || value === 'MarkdownV2';
 }
 
 function validateUpload(

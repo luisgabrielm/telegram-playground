@@ -5,12 +5,15 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildMediaGroupPayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue, type TelegramParseMode } from '$lib/message-options';
 	import type { MediaGroupFeedback, MethodComponentProps } from '$lib/playground/types';
 	import type { MediaGroupItemType } from '$lib/server/methods/media-group';
 
@@ -22,6 +25,7 @@
 		reference: string;
 		file: File | null;
 		caption: string;
+		parseMode: '' | TelegramParseMode;
 	};
 
 	let { initialFeedback }: MethodComponentProps = $props();
@@ -35,8 +39,9 @@
 	let chatId = $state(initial?.fields?.chatId ?? '');
 	let nextRowId = 0;
 	let rows = $state<MediaRow[]>(createInitialRows());
-	const requestPreview = $derived(
-		buildMediaGroupPayload({
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
+	const requestPreview = $derived.by(() => {
+		const preview = buildMediaGroupPayload({
 			chatId,
 			items: rows.map((row) => ({
 				type: row.type,
@@ -45,8 +50,22 @@
 				file: row.file,
 				caption: row.caption
 			}))
-		})
-	);
+		});
+		const media = (preview.payload.media as Array<Record<string, unknown>>).map((item, index) => ({
+			...item,
+			...(rows[index]?.caption.trim() && rows[index]?.parseMode
+				? { parse_mode: rows[index].parseMode }
+				: {})
+		}));
+		return {
+			...preview,
+			payload: {
+				...preview.payload,
+				media,
+				...buildMessageOptionsPayload(messageOptions, false)
+			}
+		};
+	});
 	const sentMessages = $derived(messageResults(feedback?.response));
 
 	const enhanceForm: SubmitFunction = () => {
@@ -71,13 +90,15 @@
 		const sourceTypes = initial?.fields?.itemSourceType ?? [];
 		const references = initial?.fields?.itemReference ?? [];
 		const captions = initial?.fields?.itemCaption ?? [];
-		const count = Math.max(2, types.length, sourceTypes.length, references.length, captions.length);
+		const parseModes = initial?.fields?.itemParseMode ?? [];
+		const count = Math.max(2, types.length, sourceTypes.length, references.length, captions.length, parseModes.length);
 		return Array.from({ length: Math.min(count, 10) }, (_, index) =>
 			createRow(
 				isItemType(types[index]) ? types[index] : 'photo',
 				sourceTypes[index] === 'upload' ? 'upload' : 'reference',
 				references[index] ?? '',
-				captions[index] ?? ''
+				captions[index] ?? '',
+				isParseMode(parseModes[index]) ? parseModes[index] : ''
 			)
 		);
 	}
@@ -86,9 +107,14 @@
 		type: MediaGroupItemType = 'photo',
 		sourceType: SourceType = 'reference',
 		reference = '',
-		caption = ''
+		caption = '',
+		parseMode: '' | TelegramParseMode = ''
 	): MediaRow {
-		return { id: nextRowId++, type, sourceType, reference, file: null, caption };
+		return { id: nextRowId++, type, sourceType, reference, file: null, caption, parseMode };
+	}
+
+	function isParseMode(value: string | undefined): value is TelegramParseMode {
+		return value === 'HTML' || value === 'MarkdownV2';
 	}
 
 	function isItemType(value: string | undefined): value is MediaGroupItemType {
@@ -238,15 +264,25 @@
 									</FormField>
 								{/if}
 
-								<FormField label="caption" inputId={`media-group-caption-${row.id}`} meta={`String · optional · ${row.caption.length.toLocaleString()}/1,024`} metaInvalid={row.caption.length > 1024} help="Plain text caption; no parse mode is applied." error={feedback?.fieldErrors?.[`itemCaption.${index}`]}>
+								<FormField label="caption" inputId={`media-group-caption-${row.id}`} meta={`String · optional · ${row.caption.length.toLocaleString()}/1,024`} metaInvalid={!row.parseMode && row.caption.length > 1024} help="Optional caption for this album item. Telegram checks formatted length when a parse mode is selected." error={feedback?.fieldErrors?.[`itemCaption.${index}`]}>
 									{#snippet children({ describedBy, invalid })}
 										<textarea id={`media-group-caption-${row.id}`} name="itemCaption" rows="2" bind:value={row.caption} aria-describedby={describedBy} aria-invalid={invalid}></textarea>
+									{/snippet}
+								</FormField>
+								<FormField label="parse_mode" inputId={`media-group-parse-mode-${row.id}`} meta="String · optional" help="Telegram parses this item's caption as HTML or MarkdownV2." error={feedback?.fieldErrors?.[`itemParseMode.${index}`]}>
+									{#snippet children({ describedBy, invalid })}
+										<select id={`media-group-parse-mode-${row.id}`} name="itemParseMode" bind:value={row.parseMode} aria-describedby={describedBy} aria-invalid={invalid}>
+											<option value="">None</option>
+											<option value="HTML">HTML</option>
+											<option value="MarkdownV2">MarkdownV2</option>
+										</select>
 									{/snippet}
 								</FormField>
 							</fieldset>
 						{/each}
 					</div>
 				</section>
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix="send-media-group-options" showParseMode={false} />
 
 				<PayloadPreview titleId="send-media-group-payload-title" payload={requestPreview.payload} encoding={requestPreview.encoding} />
 				<SubmitButton {pending} />

@@ -5,6 +5,7 @@
 	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
@@ -17,6 +18,8 @@
 		MethodComponentProps
 	} from '$lib/playground/types';
 	import { buildMediaPayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 
@@ -51,6 +54,7 @@
 	let feedback = $state<MediaFeedback | null>(initial);
 	let chatId = $state(initial?.fields?.chatId ?? '');
 	let caption = $state(initial?.fields?.caption ?? '');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let sourceType: 'reference' | 'upload' = $state(
 		initial?.fields?.sourceType === 'upload' ? 'upload' : 'reference'
 	);
@@ -63,8 +67,8 @@
 	let mediaFile = $state<File | null>(null);
 	const sentMessage = $derived(messageResult(feedback?.response));
 	const mediaError = $derived(feedback?.fieldErrors?.[mediaName]);
-	const requestPreview = $derived(
-		buildMediaPayload({
+	const requestPreview = $derived.by(() => {
+		const preview = buildMediaPayload({
 			chatId,
 			mediaName,
 			sourceType,
@@ -74,8 +78,12 @@
 			duration: showDuration ? duration : undefined,
 			hasSpoiler: showSpoiler ? hasSpoiler : undefined,
 			replyMarkup
-		})
-	);
+		});
+		return {
+			...preview,
+			payload: { ...preview.payload, ...buildMessageOptionsPayload(messageOptions) }
+		};
+	});
 
 	const enhanceForm: SubmitFunction = () => {
 		pending = true;
@@ -198,8 +206,8 @@
 					label="caption"
 					inputId={`${action}-caption`}
 					meta={`String · optional · ${caption.length.toLocaleString()}/1,024`}
-					metaInvalid={caption.length > 1024}
-					help="Plain text caption; no parse mode is applied."
+					metaInvalid={!messageOptions.parseMode && caption.length > 1024}
+					help="Use Message options to format the caption with HTML or MarkdownV2."
 					error={feedback?.fieldErrors?.caption}
 				>
 					{#snippet children({ describedBy, invalid })}
@@ -243,6 +251,12 @@
 						<span>Hide the photo behind a spoiler animation</span>
 					</label>
 				{/if}
+
+				<MessageOptionsEditor
+					bind:value={messageOptions}
+					errors={feedback?.messageOptionsErrors}
+					idPrefix={`${action}-options`}
+				/>
 
 				<ReplyMarkupEditor
 					bind:value={replyMarkup}

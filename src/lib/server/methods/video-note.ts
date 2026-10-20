@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 import { TELEGRAM_VIDEO_THUMBNAIL_MAX_BYTES } from './video';
 
 export const TELEGRAM_VIDEO_NOTE_MAX_BYTES = 50 * 1024 * 1024;
@@ -15,6 +20,7 @@ export interface SendVideoNoteInput {
 	length?: number;
 	thumbnail?: File;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendVideoNoteFieldErrors {
@@ -103,12 +109,12 @@ export function prepareSendVideoNote(input: SendVideoNoteInput): SendVideoNotePr
 			request: {
 				method: 'sendVideoNote',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: input.chatId.trim(),
 					video_note: input.videoNote.value.trim(),
 					...common,
 					...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
-				}
+				}, input.messageOptions ?? {}, false)
 			}
 		};
 	}
@@ -119,6 +125,7 @@ export function prepareSendVideoNote(input: SendVideoNoteInput): SendVideoNotePr
 	for (const [key, value] of Object.entries(common)) body.set(key, String(value));
 	if (input.thumbnail) body.set('thumbnail', input.thumbnail);
 	if (input.replyMarkup) body.set('reply_markup', JSON.stringify(input.replyMarkup));
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {}, false);
 
 	return { ok: true, request: { method: 'sendVideoNote', encoding: 'multipart', body } };
 }

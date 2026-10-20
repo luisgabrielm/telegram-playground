@@ -3,6 +3,7 @@
 	import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 	import { untrack } from 'svelte';
 	import ReplyMarkupEditor from '$lib/components/reply-markup/ReplyMarkupEditor.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
@@ -12,7 +13,9 @@
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildAudioAnimationPayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import type { MediaFeedback, MethodComponentProps } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
 
@@ -47,6 +50,7 @@
 	let width = $state(initial?.fields?.width ?? '');
 	let height = $state(initial?.fields?.height ?? '');
 	let hasSpoiler = $state(initial?.fields?.hasSpoiler === 'true');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(
 		restoreReplyMarkup(initial?.fields?.replyMarkup)
 	);
@@ -56,8 +60,8 @@
 			? (feedback.fieldErrors as Record<string, string | undefined>)[mediaName]
 			: undefined
 	);
-	const requestPreview = $derived(
-		buildAudioAnimationPayload({
+	const requestPreview = $derived.by(() => {
+		const preview = buildAudioAnimationPayload({
 			chatId,
 			mediaName,
 			sourceType,
@@ -72,8 +76,12 @@
 			thumbnailFile: sourceType === 'upload' ? thumbnailFile : null,
 			hasSpoiler: mediaName === 'animation' ? hasSpoiler : undefined,
 			replyMarkup
-		})
-	);
+		});
+		return {
+			...preview,
+			payload: { ...preview.payload, ...buildMessageOptionsPayload(messageOptions) }
+		};
+	});
 
 	const enhanceForm: SubmitFunction = () => {
 		pending = true;
@@ -141,7 +149,7 @@
 					</FormField>
 				{/if}
 
-				<FormField label="caption" inputId={`${action}-caption`} meta={`String · optional · ${caption.length.toLocaleString()}/1,024`} metaInvalid={caption.length > 1024} help="Plain text caption; no parse mode is applied." error={feedback?.fieldErrors?.caption}>
+				<FormField label="caption" inputId={`${action}-caption`} meta={`String · optional · ${caption.length.toLocaleString()}/1,024`} metaInvalid={caption.length > 1024} help="Optionally format this caption with the parse mode under Message options." error={feedback?.fieldErrors?.caption}>
 					{#snippet children({ describedBy, invalid })}
 						<textarea id={`${action}-caption`} name="caption" rows="3" bind:value={caption} aria-describedby={describedBy} aria-invalid={invalid}></textarea>
 					{/snippet}
@@ -177,6 +185,7 @@
 				{/if}
 
 				<ReplyMarkupEditor bind:value={replyMarkup} errors={feedback?.replyMarkupErrors} idPrefix={`${action}-reply`} />
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix={`${action}-options`} />
 				<PayloadPreview titleId={`${action}-payload-title`} payload={requestPreview.payload} encoding={requestPreview.encoding} />
 				<SubmitButton {pending} />
 			</form>

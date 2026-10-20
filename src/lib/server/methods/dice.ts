@@ -1,4 +1,6 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import { appendMessageOptionsToJson } from '$lib/server/message-options';
 
 export const TELEGRAM_DICE_EMOJIS = ['🎲', '🎯', '🏀', '⚽', '🎳', '🎰'] as const;
 
@@ -8,6 +10,7 @@ export interface SendDiceInput {
 	chatId: string;
 	emoji?: TelegramDiceEmoji | string;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendDiceFieldErrors {
@@ -64,11 +67,11 @@ export function prepareSendDice(input: SendDiceInput): SendDicePreparation {
 		ok: true,
 		request: {
 			method: 'sendDice',
-			body: {
+			body: appendMessageOptionsToJson({
 				chat_id: input.chatId.trim(),
 				emoji,
 				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-			}
+			}, input.messageOptions ?? {}, false)
 		}
 	};
 }

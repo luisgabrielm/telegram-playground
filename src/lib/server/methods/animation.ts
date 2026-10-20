@@ -1,4 +1,9 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import {
+	appendMessageOptionsToFormData,
+	appendMessageOptionsToJson
+} from '$lib/server/message-options';
 import { TELEGRAM_THUMBNAIL_MAX_BYTES } from './audio';
 
 export const TELEGRAM_ANIMATION_CAPTION_MAX_LENGTH = 1024;
@@ -18,6 +23,7 @@ export interface SendAnimationInput {
 	thumbnail?: File;
 	hasSpoiler?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendAnimationFieldErrors {
@@ -61,7 +67,7 @@ export function validateSendAnimation(input: SendAnimationInput) {
 		errors.animation = 'Animation uploads can contain at most 50 MB.';
 	}
 
-	if ((input.caption?.length ?? 0) > TELEGRAM_ANIMATION_CAPTION_MAX_LENGTH) {
+	if (!input.messageOptions?.parseMode && (input.caption?.length ?? 0) > TELEGRAM_ANIMATION_CAPTION_MAX_LENGTH) {
 		errors.caption = `Captions can contain at most ${TELEGRAM_ANIMATION_CAPTION_MAX_LENGTH.toLocaleString()} characters.`;
 	}
 	validateWholeNumber(input.duration, 'duration', errors, true);
@@ -94,7 +100,7 @@ export function prepareSendAnimation(input: SendAnimationInput): SendAnimationPr
 			request: {
 				method: 'sendAnimation',
 				encoding: 'json',
-				body: {
+				body: appendMessageOptionsToJson({
 					chat_id: input.chatId.trim(),
 					animation: input.animation.value.trim(),
 					...(caption ? { caption } : {}),
@@ -103,7 +109,7 @@ export function prepareSendAnimation(input: SendAnimationInput): SendAnimationPr
 					...(input.height === undefined ? {} : { height: input.height }),
 					...(input.hasSpoiler ? { has_spoiler: true } : {}),
 					...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
-				}
+				}, input.messageOptions ?? {})
 			}
 		};
 	}
@@ -118,6 +124,7 @@ export function prepareSendAnimation(input: SendAnimationInput): SendAnimationPr
 	if (input.thumbnail) body.set('thumbnail', input.thumbnail);
 	if (input.hasSpoiler) body.set('has_spoiler', 'true');
 	if (input.replyMarkup) body.set('reply_markup', JSON.stringify(input.replyMarkup));
+	appendMessageOptionsToFormData(body, input.messageOptions ?? {});
 
 	return { ok: true, request: { method: 'sendAnimation', encoding: 'multipart', body } };
 }

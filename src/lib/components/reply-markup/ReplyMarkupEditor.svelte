@@ -1,13 +1,16 @@
 <script lang="ts">
-	import type { TelegramReplyMarkup } from '$lib/reply-markup';
+	import type { InlineKeyboardButtonStyle, TelegramReplyMarkup } from '$lib/reply-markup';
 
 	type Mode = 'none' | 'inline' | 'reply' | 'remove' | 'force';
 	type InlineAction = 'url' | 'copy_text' | 'callback_data';
+	type InlineStyle = 'default' | InlineKeyboardButtonStyle;
 	type InlineButton = {
 		id: string;
 		text: string;
 		action: InlineAction;
 		value: string;
+		style: InlineStyle;
+		iconCustomEmojiId: string;
 	};
 	type InlineRow = { id: string; buttons: InlineButton[] };
 	type ReplyButton = { id: string; text: string };
@@ -56,11 +59,27 @@
 		return markup.inline_keyboard.map((row) => ({
 			id: id('inline-row'),
 			buttons: row.map((button) => {
-				if ('url' in button) return newInlineButton(button.text, 'url', button.url);
-				if ('copy_text' in button) {
-					return newInlineButton(button.text, 'copy_text', button.copy_text.text);
+				const style = button.style ?? 'default';
+				const iconCustomEmojiId = button.icon_custom_emoji_id ?? '';
+				if ('url' in button) {
+					return newInlineButton(button.text, 'url', button.url, style, iconCustomEmojiId);
 				}
-				return newInlineButton(button.text, 'callback_data', button.callback_data);
+				if ('copy_text' in button) {
+					return newInlineButton(
+						button.text,
+						'copy_text',
+						button.copy_text.text,
+						style,
+						iconCustomEmojiId
+					);
+				}
+				return newInlineButton(
+					button.text,
+					'callback_data',
+					button.callback_data,
+					style,
+					iconCustomEmojiId
+				);
 			})
 		}));
 	}
@@ -91,9 +110,18 @@
 	function newInlineButton(
 		text = '',
 		action: InlineAction = 'url',
-		actionValue = ''
+		actionValue = '',
+		style: InlineStyle = 'default',
+		iconCustomEmojiId = ''
 	): InlineButton {
-		return { id: id('inline-button'), text, action, value: actionValue };
+		return {
+			id: id('inline-button'),
+			text,
+			action,
+			value: actionValue,
+			style,
+			iconCustomEmojiId
+		};
 	}
 
 	function newInlineRow(): InlineRow {
@@ -122,11 +150,23 @@
 			value = {
 				inline_keyboard: inlineRows.map((row) =>
 					row.buttons.map((button) => {
-						if (button.action === 'url') return { text: button.text, url: button.value };
-						if (button.action === 'copy_text') {
-							return { text: button.text, copy_text: { text: button.value } };
+						const appearance = {
+							...(button.style === 'default' ? {} : { style: button.style }),
+							...(button.iconCustomEmojiId
+								? { icon_custom_emoji_id: button.iconCustomEmojiId }
+								: {})
+						};
+						if (button.action === 'url') {
+							return { text: button.text, ...appearance, url: button.value };
 						}
-						return { text: button.text, callback_data: button.value };
+						if (button.action === 'copy_text') {
+							return {
+								text: button.text,
+								...appearance,
+								copy_text: { text: button.value }
+							};
+						}
+						return { text: button.text, ...appearance, callback_data: button.value };
 					})
 			)
 			};
@@ -263,7 +303,8 @@
 		<div class="editor" aria-label="Inline keyboard editor">
 			<p class="editor-help">
 				URL and copy buttons work immediately. Callback buttons require webhook updates to observe
-				the resulting CallbackQuery.
+				the resulting CallbackQuery. Custom emoji icons require an eligible bot or a Premium bot
+				owner when sending directly to private, group, or supergroup chats.
 			</p>
 
 			{#each inlineRows as row, rowIndex (row.id)}
@@ -325,6 +366,44 @@
 										}}
 										aria-invalid={Boolean(
 											fieldError(`reply_markup.inline_keyboard[${rowIndex}][${buttonIndex}].text`)
+										)}
+									/>
+								</label>
+
+								<label>
+									<span>Style</span>
+									<select
+										value={button.style}
+										onchange={(event) => {
+											button.style = event.currentTarget.value as InlineStyle;
+											commit();
+										}}
+										aria-invalid={Boolean(
+											fieldError(
+												`reply_markup.inline_keyboard[${rowIndex}][${buttonIndex}].style`
+											)
+										)}
+									>
+										<option value="default">Telegram default</option>
+										<option value="primary">Primary · blue</option>
+										<option value="success">Success · green</option>
+										<option value="danger">Danger · red</option>
+									</select>
+								</label>
+
+								<label>
+									<span>Custom emoji icon ID <small>optional</small></span>
+									<input
+										type="text"
+										value={button.iconCustomEmojiId}
+										oninput={(event) => {
+											button.iconCustomEmojiId = event.currentTarget.value;
+											commit();
+										}}
+										aria-invalid={Boolean(
+											fieldError(
+												`reply_markup.inline_keyboard[${rowIndex}][${buttonIndex}].icon_custom_emoji_id`
+											)
 										)}
 									/>
 								</label>
@@ -681,7 +760,8 @@
 		outline: none;
 	}
 
-	input[aria-invalid='true'] {
+	input[aria-invalid='true'],
+	select[aria-invalid='true'] {
 		border-color: var(--danger);
 	}
 

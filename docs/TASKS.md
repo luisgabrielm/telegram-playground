@@ -27,6 +27,32 @@
 4. [x] **Remove keyboard and force reply**
    - Remove an existing reply keyboard or open Telegram's reply composer with an optional placeholder.
 
+## Formatting and interactions
+
+1. [x] **Parse mode — HTML and MarkdownV2**
+   - Support Telegram's HTML and MarkdownV2 formatting modes for message text and media captions.
+
+2. [x] **Replies and quotations**
+   - Add `reply_parameters` with message targeting, quoted text, quote formatting, and quote-position controls.
+
+3. [x] **Protected content**
+   - Support `protect_content` to prevent sent messages from being forwarded or saved where Telegram permits it.
+
+4. [x] **Silent messages**
+   - Support `disable_notification` to deliver messages without notification sound.
+
+5. [x] **Message effects**
+   - Add `message_effect_id` for messages sent to private chats and expose the selected effect in the payload preview.
+
+6. [x] **Message reactions**
+   - Implement `setMessageReaction` with standard or custom emoji reactions and optional large animation.
+
+7. [x] **Colored inline buttons**
+   - Support the `primary`, `success`, and `danger` inline-button styles while preserving Telegram's default style.
+
+8. [x] **Custom emoji button icons**
+   - Add `icon_custom_emoji_id` to inline keyboard buttons and document Telegram's account and chat restrictions.
+
 ## Message types
 
 1. [x] **Text message — `sendMessage`**

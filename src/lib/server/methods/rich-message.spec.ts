@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { parseRichMessageBlocks, prepareSendRichMessage } from './rich-message';
 
 describe('rich message preparation', () => {
+	it('serializes delivery options without changing the structured format', () => {
+		const result = prepareSendRichMessage({ chatId: '42', blocks: [{ type: 'paragraph', text: 'Hello' }],
+			messageOptions: { parseMode: 'HTML', disableNotification: true, replyParameters: { messageId: 2 } } });
+		expect(result.ok && result.request.body).toMatchObject({ disable_notification: true, reply_parameters: { message_id: 2 } });
+		expect(result.ok && result.request.body).not.toHaveProperty('parse_mode');
+	});
 	it('builds a structured rich-message request', () => {
 		const result = prepareSendRichMessage({
 			chatId: ' @channel ',

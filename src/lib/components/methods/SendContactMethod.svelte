@@ -6,12 +6,15 @@
 	import EmptyResponse from '$lib/components/playground/EmptyResponse.svelte';
 	import FormField from '$lib/components/playground/FormField.svelte';
 	import MethodLayout from '$lib/components/playground/MethodLayout.svelte';
+	import MessageOptionsEditor from '$lib/components/playground/MessageOptionsEditor.svelte';
 	import Notice from '$lib/components/playground/Notice.svelte';
 	import PayloadPreview from '$lib/components/playground/PayloadPreview.svelte';
 	import RequestPanel from '$lib/components/playground/RequestPanel.svelte';
 	import ResponsePanel from '$lib/components/playground/ResponsePanel.svelte';
 	import SubmitButton from '$lib/components/playground/SubmitButton.svelte';
 	import { buildSendContactPayload } from '$lib/playground/payload';
+	import { buildMessageOptionsPayload } from '$lib/playground/message-options';
+	import { createMessageOptionsValue } from '$lib/message-options';
 	import { restoreReplyMarkup } from '$lib/playground/reply-markup';
 	import type { ContactFeedback, MethodComponentProps } from '$lib/playground/types';
 	import type { TelegramReplyMarkup } from '$lib/reply-markup';
@@ -26,8 +29,12 @@
 	let firstName = $state(initial?.fields?.firstName ?? '');
 	let lastName = $state(initial?.fields?.lastName ?? '');
 	let vcard = $state(initial?.fields?.vcard ?? '');
+	let messageOptions = $state(createMessageOptionsValue(initial?.fields?.messageOptions));
 	let replyMarkup = $state<TelegramReplyMarkup | undefined>(restoreReplyMarkup(initial?.fields?.replyMarkup));
-	const requestPayload = $derived(buildSendContactPayload({ chatId, phoneNumber, firstName, lastName, vcard, replyMarkup }));
+	const requestPayload = $derived({
+		...buildSendContactPayload({ chatId, phoneNumber, firstName, lastName, vcard, replyMarkup }),
+		...buildMessageOptionsPayload(messageOptions, false)
+	});
 	const sentMessage = $derived(messageResult(feedback?.response));
 
 	const enhanceForm: SubmitFunction = () => {
@@ -79,6 +86,7 @@
 					{#snippet children({ describedBy, invalid })}<textarea id="contact-vcard" name="vcard" rows="6" bind:value={vcard} placeholder={vcardPlaceholder} aria-describedby={describedBy} aria-invalid={invalid}></textarea>{/snippet}
 				</FormField>
 				<ReplyMarkupEditor bind:value={replyMarkup} errors={feedback?.replyMarkupErrors} idPrefix="send-contact-reply" />
+				<MessageOptionsEditor bind:value={messageOptions} errors={feedback?.messageOptionsErrors} idPrefix="send-contact-options" showParseMode={false} />
 				<PayloadPreview titleId="send-contact-payload-title" payload={requestPayload} />
 				<SubmitButton {pending} />
 			</form>

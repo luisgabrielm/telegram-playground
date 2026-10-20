@@ -1,5 +1,6 @@
 import type { Component } from 'svelte';
 import type { TelegramApiFailure, TelegramApiSuccess, TelegramMessage, TelegramUser } from '$lib/telegram';
+import type { MessageOptionsFieldErrors, MessageOptionsFields } from '$lib/message-options';
 
 export type MethodId =
 	| 'getMe'
@@ -19,12 +20,14 @@ export type MethodId =
 	| 'sendMediaGroup'
 	| 'sendRichMessage'
 	| 'answerCallbackQuery'
-	| 'editMessageReplyMarkup';
+	| 'editMessageReplyMarkup'
+	| 'setMessageReaction';
 
 type FeedbackBase = {
 	success: boolean;
 	error?: string;
 	response?: TelegramApiFailure;
+	messageOptionsErrors?: MessageOptionsFieldErrors;
 };
 
 export type GetMeFeedback = FeedbackBase & {
@@ -58,6 +61,20 @@ export type EditMessageReplyMarkupFeedback = FeedbackBase & {
 	replyMarkupErrors?: Record<string, string>;
 };
 
+export type SetMessageReactionFeedback = FeedbackBase & {
+	action: 'setMessageReaction';
+	response?: TelegramApiSuccess<true> | TelegramApiFailure;
+	fields?: {
+		chatId?: string;
+		messageId?: string;
+		reactionKind?: 'none' | 'emoji' | 'custom_emoji';
+		emoji?: string;
+		customEmojiId?: string;
+		isBig?: string;
+	};
+	fieldErrors?: Record<string, string>;
+};
+
 export type SendMessageFeedback = FeedbackBase & {
 	action: 'sendMessage';
 	response?: TelegramApiSuccess<TelegramMessage> | TelegramApiFailure;
@@ -65,6 +82,7 @@ export type SendMessageFeedback = FeedbackBase & {
 		chatId?: string;
 		text?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: {
 		chatId?: string;
@@ -100,6 +118,7 @@ export type MediaFeedback = FeedbackBase & {
 		supportsStreaming?: string;
 		hasSpoiler?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: {
 		chatId?: string;
@@ -132,6 +151,7 @@ export type PollFeedback = FeedbackBase & {
 		explanation?: string;
 		openPeriod?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -144,6 +164,7 @@ export type DiceFeedback = FeedbackBase & {
 		chatId?: string;
 		emoji?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -158,6 +179,8 @@ export type MediaGroupFeedback = FeedbackBase & {
 		itemSourceType?: string[];
 		itemReference?: string[];
 		itemCaption?: string[];
+		itemParseMode?: string[];
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 };
@@ -171,6 +194,7 @@ export type RichMessageFeedback = FeedbackBase & {
 		isRtl?: string;
 		skipEntityDetection?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -186,6 +210,7 @@ export type ContactFeedback = FeedbackBase & {
 		lastName?: string;
 		vcard?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -203,6 +228,7 @@ export type LocationFeedback = FeedbackBase & {
 		heading?: string;
 		proximityAlertRadius?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -222,6 +248,7 @@ export type VenueFeedback = FeedbackBase & {
 		googlePlaceId?: string;
 		googlePlaceType?: string;
 		replyMarkup?: string;
+		messageOptions?: MessageOptionsFields;
 	};
 	fieldErrors?: Record<string, string>;
 	replyMarkupErrors?: Record<string, string>;
@@ -231,6 +258,7 @@ export type MethodFeedback =
 	| GetMeFeedback
 	| AnswerCallbackQueryFeedback
 	| EditMessageReplyMarkupFeedback
+	| SetMessageReactionFeedback
 	| SendMessageFeedback
 	| MediaFeedback
 	| PollFeedback
@@ -250,7 +278,7 @@ export type PlaygroundMethod = {
 	id: MethodId;
 	label: string;
 	apiMethod: string;
-	group: 'Bot' | 'Messages' | 'Inline keyboards';
+	group: 'Bot' | 'Messages' | 'Inline keyboards' | 'Formatting and interactions';
 	component: Component<MethodComponentProps>;
 };
 

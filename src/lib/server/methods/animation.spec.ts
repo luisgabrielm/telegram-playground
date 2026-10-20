@@ -7,6 +7,14 @@ import {
 } from './animation';
 
 describe('validateSendAnimation', () => {
+	it('leaves formatted caption length validation to Telegram', () => {
+		expect(validateSendAnimation({
+			chatId: '1',
+			animation: { kind: 'reference', value: 'file-id' },
+			caption: `<b>${'x'.repeat(TELEGRAM_ANIMATION_CAPTION_MAX_LENGTH)}</b>`,
+			messageOptions: { parseMode: 'HTML' }
+		})).toEqual({ valid: true, errors: {} });
+	});
 	it('validates required, text, numeric, and file inputs', () => {
 		expect(
 			validateSendAnimation({ chatId: '', animation: { kind: 'reference', value: '' } }).errors
@@ -36,6 +44,26 @@ describe('validateSendAnimation', () => {
 });
 
 describe('prepareSendAnimation', () => {
+	it('serializes parse mode and delivery options for JSON and multipart requests', () => {
+		const messageOptions = {
+			parseMode: 'MarkdownV2' as const,
+			replyParameters: { messageId: 9 },
+			protectContent: true as const
+		};
+		const json = prepareSendAnimation({
+			chatId: '1', animation: { kind: 'reference', value: 'file-id' }, messageOptions
+		});
+		expect(json.ok && json.request.encoding === 'json' ? json.request.body : null).toMatchObject({
+			parse_mode: 'MarkdownV2', reply_parameters: { message_id: 9 }, protect_content: true
+		});
+		const multipart = prepareSendAnimation({
+			chatId: '1', animation: { kind: 'upload', file: new File(['gif'], 'a.gif') }, messageOptions
+		});
+		expect(multipart.ok && multipart.request.encoding === 'multipart'
+			? Object.fromEntries(multipart.request.body.entries()) : null).toMatchObject({
+			parse_mode: 'MarkdownV2', reply_parameters: '{"message_id":9}', protect_content: 'true'
+		});
+	});
 	it('prepares a complete JSON request for a reference', () => {
 		expect(
 			prepareSendAnimation({

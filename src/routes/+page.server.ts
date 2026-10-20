@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { validateMessage } from '$lib/server/message-validation';
+import { prepareSendMessage } from '$lib/server/methods/message';
 import { parseReplyMarkup } from '$lib/server/reply-markup';
 import { prepareSendDocument } from '$lib/server/methods/document';
 import {
@@ -36,6 +36,8 @@ import {
 	prepareAnswerCallbackQuery,
 	prepareEditMessageReplyMarkup
 } from '$lib/server/methods/inline-keyboard';
+import { prepareSetMessageReaction } from '$lib/server/methods/reaction';
+import { parseMessageOptions } from '$lib/server/message-options';
 import {
 	createTelegramClient,
 	getPublicTelegramError,
@@ -70,35 +72,46 @@ export const actions = {
 	},
 	sendMessage: async ({ request, fetch }) => {
 		const formData = await request.formData();
+		const messageOptions = parseMessageOptions(formData);
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
 			text: String(formData.get('text') ?? ''),
-			replyMarkup: String(formData.get('replyMarkup') ?? '')
+			replyMarkup: String(formData.get('replyMarkup') ?? ''),
+			messageOptions: messageOptions.fields
 		};
-		const validation = validateMessage(fields);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 
-		if (!validation.valid || !replyMarkup.ok) {
+		if (!messageOptions.ok || !replyMarkup.ok) {
 			return fail(400, {
 				action: 'sendMessage' as const,
 				success: false as const,
 				fields,
-				fieldErrors: validation.errors,
+				messageOptionsErrors: messageOptions.ok ? undefined : messageOptions.errors,
 				replyMarkupErrors: replyMarkup.ok ? undefined : replyMarkup.errors
+			});
+		}
+		const prepared = prepareSendMessage({
+			chatId: fields.chatId,
+			text: fields.text,
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'sendMessage' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
 			});
 		}
 
 		try {
-			const response = await createTelegramClient(fetch).sendMessage(
-				fields.chatId.trim(),
-				fields.text,
-				replyMarkup.value
-			);
+			const response = await createTelegramClient(fetch).sendMessage(prepared.request);
 
 			return {
 				action: 'sendMessage' as const,
 				success: true as const,
-				fields: { chatId: fields.chatId, text: '', replyMarkup: fields.replyMarkup },
+				fields: { ...fields, text: '' },
 				response
 			};
 		} catch (error) {
@@ -115,7 +128,9 @@ export const actions = {
 	},
 	sendPhoto: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = mediaFields(formData, 'photo');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...mediaFields(formData, 'photo'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendPhoto', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendPhoto', fields, replyMarkup.errors));
@@ -128,7 +143,8 @@ export const actions = {
 				photo: source,
 				caption: fields.caption,
 				hasSpoiler: formData.get('hasSpoiler') === 'true',
-				replyMarkup: replyMarkup.value
+				replyMarkup: replyMarkup.value,
+				messageOptions: messageOptions.value
 			});
 			const response = await createTelegramClient(fetch).sendPhoto(prepared);
 			return mediaSuccess('sendPhoto', fields, response);
@@ -141,7 +157,9 @@ export const actions = {
 	},
 	sendDocument: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = mediaFields(formData, 'document');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...mediaFields(formData, 'document'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendDocument', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendDocument', fields, replyMarkup.errors));
@@ -150,7 +168,8 @@ export const actions = {
 			chatId: fields.chatId,
 			document: mediaEntry(formData, 'document'),
 			caption: fields.caption,
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 
 		if (!prepared.ok) {
@@ -166,7 +185,9 @@ export const actions = {
 	},
 	sendVoice: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = mediaFields(formData, 'voice');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...mediaFields(formData, 'voice'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendVoice', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendVoice', fields, replyMarkup.errors));
@@ -178,7 +199,8 @@ export const actions = {
 			voice: source,
 			caption: fields.caption,
 			duration: durationValue ? Number(durationValue) : undefined,
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 
 		if (!prepared.ok) {
@@ -194,7 +216,9 @@ export const actions = {
 	},
 	sendAudio: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = advancedMediaFields(formData, 'audio');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...advancedMediaFields(formData, 'audio'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendAudio', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendAudio', fields, replyMarkup.errors));
@@ -207,7 +231,8 @@ export const actions = {
 			performer: fields.performer,
 			title: fields.title,
 			thumbnail: optionalFile(formData, 'thumbnailFile'),
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, mediaValidationFailure('sendAudio', fields, prepared.errors));
@@ -221,7 +246,9 @@ export const actions = {
 	},
 	sendVideo: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = advancedMediaFields(formData, 'video');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...advancedMediaFields(formData, 'video'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendVideo', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendVideo', fields, replyMarkup.errors));
@@ -236,7 +263,8 @@ export const actions = {
 			thumbnail: optionalFile(formData, 'thumbnailFile'),
 			supportsStreaming: fields.supportsStreaming === 'true',
 			hasSpoiler: fields.hasSpoiler === 'true',
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, mediaValidationFailure('sendVideo', fields, prepared.errors));
@@ -250,7 +278,9 @@ export const actions = {
 	},
 	sendVideoNote: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = advancedMediaFields(formData, 'videoNote');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...advancedMediaFields(formData, 'videoNote'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendVideoNote', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendVideoNote', fields, replyMarkup.errors));
@@ -261,7 +291,8 @@ export const actions = {
 			duration: optionalNumber(fields.duration),
 			length: optionalNumber(fields.length),
 			thumbnail: optionalFile(formData, 'thumbnailFile'),
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, mediaValidationFailure('sendVideoNote', fields, prepared.errors));
@@ -275,7 +306,9 @@ export const actions = {
 	},
 	sendAnimation: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = advancedMediaFields(formData, 'animation');
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...advancedMediaFields(formData, 'animation'), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendAnimation', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, mediaReplyMarkupFailure('sendAnimation', fields, replyMarkup.errors));
@@ -289,7 +322,8 @@ export const actions = {
 			height: optionalNumber(fields.height),
 			thumbnail: optionalFile(formData, 'thumbnailFile'),
 			hasSpoiler: fields.hasSpoiler === 'true',
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, mediaValidationFailure('sendAnimation', fields, prepared.errors));
@@ -303,10 +337,12 @@ export const actions = {
 	},
 	sendContact: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = contactFields(formData);
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...contactFields(formData), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendContact', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) return replyMarkupFailure('sendContact', fields, replyMarkup.errors);
-		const prepared = prepareSendContact({ ...fields, replyMarkup: replyMarkup.value });
+		const prepared = prepareSendContact({ ...fields, replyMarkup: replyMarkup.value, messageOptions: messageOptions.value });
 		if (!prepared.ok) return methodValidationFailure('sendContact', fields, prepared.errors);
 		try {
 			const response = await createTelegramClient(fetch).sendContact(prepared.request);
@@ -317,10 +353,12 @@ export const actions = {
 	},
 	sendLocation: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = locationFields(formData);
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...locationFields(formData), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendLocation', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) return replyMarkupFailure('sendLocation', fields, replyMarkup.errors);
-		const prepared = prepareSendLocation({ ...fields, replyMarkup: replyMarkup.value });
+		const prepared = prepareSendLocation({ ...fields, replyMarkup: replyMarkup.value, messageOptions: messageOptions.value });
 		if (!prepared.ok) return methodValidationFailure('sendLocation', fields, prepared.errors);
 		try {
 			const response = await createTelegramClient(fetch).sendLocation(prepared.request);
@@ -331,10 +369,12 @@ export const actions = {
 	},
 	sendVenue: async ({ request, fetch }) => {
 		const formData = await request.formData();
-		const fields = venueFields(formData);
+		const messageOptions = parseMessageOptions(formData);
+		const fields = { ...venueFields(formData), messageOptions: messageOptions.fields };
+		if (!messageOptions.ok) return messageOptionsFailure('sendVenue', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) return replyMarkupFailure('sendVenue', fields, replyMarkup.errors);
-		const prepared = prepareSendVenue({ ...fields, replyMarkup: replyMarkup.value });
+		const prepared = prepareSendVenue({ ...fields, replyMarkup: replyMarkup.value, messageOptions: messageOptions.value });
 		if (!prepared.ok) return methodValidationFailure('sendVenue', fields, prepared.errors);
 		try {
 			const response = await createTelegramClient(fetch).sendVenue(prepared.request);
@@ -345,11 +385,14 @@ export const actions = {
 	},
 	sendDice: async ({ request, fetch }) => {
 		const formData = await request.formData();
+		const messageOptions = parseMessageOptions(formData);
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
 			emoji: String(formData.get('emoji') ?? '🎲'),
-			replyMarkup: String(formData.get('replyMarkup') ?? '')
+			replyMarkup: String(formData.get('replyMarkup') ?? ''),
+			messageOptions: messageOptions.fields
 		};
+		if (!messageOptions.ok) return messageOptionsFailure('sendDice', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, {
@@ -362,7 +405,8 @@ export const actions = {
 		const prepared = prepareSendDice({
 			chatId: fields.chatId,
 			emoji: fields.emoji,
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, {
@@ -382,6 +426,7 @@ export const actions = {
 	},
 	sendPoll: async ({ request, fetch }) => {
 		const formData = await request.formData();
+		const messageOptions = parseMessageOptions(formData);
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
 			question: String(formData.get('question') ?? ''),
@@ -392,8 +437,10 @@ export const actions = {
 			correctOptionIds: stringEntries(formData, 'correctOptionIds'),
 			explanation: String(formData.get('explanation') ?? ''),
 			openPeriod: String(formData.get('openPeriod') ?? ''),
-			replyMarkup: String(formData.get('replyMarkup') ?? '')
+			replyMarkup: String(formData.get('replyMarkup') ?? ''),
+			messageOptions: messageOptions.fields
 		};
+		if (!messageOptions.ok) return messageOptionsFailure('sendPoll', fields, messageOptions.errors);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!replyMarkup.ok) {
 			return fail(400, {
@@ -413,7 +460,8 @@ export const actions = {
 			correctOptionIds: fields.correctOptionIds.map(Number),
 			explanation: fields.explanation,
 			openPeriod: fields.openPeriod,
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, {
@@ -433,13 +481,17 @@ export const actions = {
 	},
 	sendMediaGroup: async ({ request, fetch }) => {
 		const formData = await request.formData();
+		const messageOptions = parseMessageOptions(formData);
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
 			itemType: stringEntries(formData, 'itemType'),
 			itemSourceType: stringEntries(formData, 'itemSourceType'),
 			itemReference: stringEntries(formData, 'itemReference'),
-			itemCaption: stringEntries(formData, 'itemCaption')
+			itemCaption: stringEntries(formData, 'itemCaption'),
+			itemParseMode: stringEntries(formData, 'itemParseMode'),
+			messageOptions: messageOptions.fields
 		};
+		if (!messageOptions.ok) return messageOptionsFailure('sendMediaGroup', fields, messageOptions.errors);
 		const items: SendMediaGroupItem[] = fields.itemType.map((type, index) => {
 			const sourceType = fields.itemSourceType[index] ?? 'reference';
 			const fileEntry = formData.get(`itemFile.${index}`);
@@ -456,10 +508,11 @@ export const actions = {
 								kind: 'reference' as const,
 								value: fields.itemReference[index] ?? ''
 							},
-				caption: fields.itemCaption[index] ?? ''
+				caption: fields.itemCaption[index] ?? '',
+				parseMode: fields.itemParseMode[index] || undefined
 			};
 		});
-		const prepared = prepareSendMediaGroup({ chatId: fields.chatId, items });
+		const prepared = prepareSendMediaGroup({ chatId: fields.chatId, items, messageOptions: messageOptions.value });
 		if (!prepared.ok) {
 			return fail(400, {
 				action: 'sendMediaGroup' as const,
@@ -478,13 +531,16 @@ export const actions = {
 	},
 	sendRichMessage: async ({ request, fetch }) => {
 		const formData = await request.formData();
+		const messageOptions = parseMessageOptions(formData);
 		const fields = {
 			chatId: String(formData.get('chatId') ?? ''),
 			blocks: String(formData.get('blocks') ?? ''),
 			isRtl: String(formData.get('isRtl') === 'true'),
 			skipEntityDetection: String(formData.get('skipEntityDetection') === 'true'),
-			replyMarkup: String(formData.get('replyMarkup') ?? '')
+			replyMarkup: String(formData.get('replyMarkup') ?? ''),
+			messageOptions: messageOptions.fields
 		};
+		if (!messageOptions.ok) return messageOptionsFailure('sendRichMessage', fields, messageOptions.errors);
 		const parsedBlocks = parseRichMessageBlocks(fields.blocks);
 		const replyMarkup = parseReplyMarkup(fields.replyMarkup);
 		if (!parsedBlocks.ok || !replyMarkup.ok) {
@@ -501,7 +557,8 @@ export const actions = {
 			blocks: parsedBlocks.value,
 			isRtl: fields.isRtl === 'true',
 			skipEntityDetection: fields.skipEntityDetection === 'true',
-			replyMarkup: replyMarkup.value
+			replyMarkup: replyMarkup.value,
+			messageOptions: messageOptions.value
 		});
 		if (!prepared.ok) {
 			return fail(400, {
@@ -596,6 +653,39 @@ export const actions = {
 			};
 		} catch (error) {
 			return methodTelegramFailure('editMessageReplyMarkup', fields, error);
+		}
+	},
+	setMessageReaction: async ({ request, fetch }) => {
+		const formData = await request.formData();
+		const fields = {
+			chatId: String(formData.get('chatId') ?? ''),
+			messageId: String(formData.get('messageId') ?? ''),
+			reactionKind: String(formData.get('reactionKind') ?? 'none') as
+				| 'none'
+				| 'emoji'
+				| 'custom_emoji',
+			emoji: String(formData.get('emoji') ?? ''),
+			customEmojiId: String(formData.get('customEmojiId') ?? ''),
+			isBig: String(formData.get('isBig') === 'true')
+		};
+		const prepared = prepareSetMessageReaction({
+			...fields,
+			isBig: fields.isBig === 'true'
+		});
+		if (!prepared.ok) {
+			return fail(400, {
+				action: 'setMessageReaction' as const,
+				success: false as const,
+				fields,
+				fieldErrors: prepared.errors
+			});
+		}
+
+		try {
+			const response = await createTelegramClient(fetch).setMessageReaction(prepared.request);
+			return { action: 'setMessageReaction' as const, success: true as const, fields, response };
+		} catch (error) {
+			return methodTelegramFailure('setMessageReaction', fields, error);
 		}
 	}
 } satisfies Actions;
@@ -742,7 +832,8 @@ function methodTelegramFailure<
 		| 'sendLocation'
 		| 'sendVenue'
 		| 'answerCallbackQuery'
-		| 'editMessageReplyMarkup',
+		| 'editMessageReplyMarkup'
+		| 'setMessageReaction',
 	Fields
 >(
 	action: Action,
@@ -773,6 +864,14 @@ function replyMarkupFailure<Action extends 'sendContact' | 'sendLocation' | 'sen
 	replyMarkupErrors: Record<string, string>
 ) {
 	return fail(400, { action, success: false as const, fields, replyMarkupErrors });
+}
+
+function messageOptionsFailure<Action extends MediaAction | 'sendMessage' | 'sendContact' | 'sendLocation' | 'sendVenue' | 'sendPoll' | 'sendDice' | 'sendMediaGroup' | 'sendRichMessage', Fields>(
+	action: Action,
+	fields: Fields,
+	messageOptionsErrors: Record<string, string>
+) {
+	return fail(400, { action, success: false as const, fields, messageOptionsErrors });
 }
 
 function stringEntries(formData: FormData, name: string) {

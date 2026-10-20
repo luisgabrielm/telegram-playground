@@ -1,5 +1,7 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
 import type { InputRichBlock, InputRichMessage } from '$lib/rich-message';
+import { appendMessageOptionsToJson } from '$lib/server/message-options';
 
 export type PreparedSendRichMessageRequest = {
 	method: 'sendRichMessage';
@@ -41,6 +43,7 @@ export function prepareSendRichMessage(input: {
 	isRtl?: boolean;
 	skipEntityDetection?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }): { ok: true; request: PreparedSendRichMessageRequest } | { ok: false; errors: RichMessageFieldErrors } {
 	const errors: RichMessageFieldErrors = {};
 	if (!input.chatId.trim()) errors.chatId = 'Enter a chat ID or channel username.';
@@ -52,7 +55,7 @@ export function prepareSendRichMessage(input: {
 		ok: true,
 		request: {
 			method: 'sendRichMessage',
-			body: {
+			body: appendMessageOptionsToJson({
 				chat_id: input.chatId.trim(),
 				rich_message: {
 					blocks: input.blocks,
@@ -60,7 +63,7 @@ export function prepareSendRichMessage(input: {
 					...(input.skipEntityDetection ? { skip_entity_detection: true as const } : {})
 				},
 				...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
-			}
+			}, input.messageOptions ?? {}, false)
 		}
 	};
 }

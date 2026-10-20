@@ -62,4 +62,12 @@ describe('prepareSendLocation', () => {
 			errors: { livePeriod: 'Set a live period to use heading or proximity alerts.' }
 		});
 	});
+
+	it('serializes silent and reply options', () => {
+		const result = prepareSendLocation({ chatId: '42', latitude: 0, longitude: 0,
+			messageOptions: { replyParameters: { messageId: 9 }, disableNotification: true } });
+		expect(result.ok && result.request.body).toMatchObject({
+			reply_parameters: { message_id: 9 }, disable_notification: true
+		});
+	});
 });

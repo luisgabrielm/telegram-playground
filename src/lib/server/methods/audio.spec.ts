@@ -46,6 +46,15 @@ describe('validateSendAudio', () => {
 			}).errors.thumbnail
 		).toContain('200 kB');
 	});
+
+	it('leaves formatted caption length validation to Telegram', () => {
+		expect(validateSendAudio({
+			chatId: '1',
+			audio: { kind: 'reference', value: 'file-id' },
+			caption: `<b>${'x'.repeat(TELEGRAM_AUDIO_CAPTION_MAX_LENGTH)}</b>`,
+			messageOptions: { parseMode: 'HTML' }
+		})).toEqual({ valid: true, errors: {} });
+	});
 });
 
 describe('prepareSendAudio', () => {
@@ -93,6 +102,62 @@ describe('prepareSendAudio', () => {
 		expect(result.request.body.get('audio')).toBe(audio);
 		expect(result.request.body.get('thumbnail')).toBe(thumbnail);
 		expect(result.request.body.get('title')).toBe('Track');
+	});
+
+	it('serializes formatting and delivery options for JSON and multipart requests', () => {
+		const options = {
+			parseMode: 'HTML' as const,
+			replyParameters: {
+				messageId: 7,
+				allowSendingWithoutReply: true as const,
+				quote: '<b>line</b>',
+				quoteParseMode: 'HTML' as const,
+				quotePosition: 0
+			},
+			protectContent: true as const,
+			disableNotification: true as const,
+			messageEffectId: 'effect-1'
+		};
+		const json = prepareSendAudio({
+			chatId: '1',
+			audio: { kind: 'reference', value: 'file-id' },
+			caption: '<b>Track</b>',
+			messageOptions: options
+		});
+		expect(json.ok && json.request.encoding === 'json' ? json.request.body : null).toMatchObject({
+			parse_mode: 'HTML',
+			reply_parameters: {
+				message_id: 7,
+				allow_sending_without_reply: true,
+				quote: '<b>line</b>',
+				quote_parse_mode: 'HTML',
+				quote_position: 0
+			},
+			protect_content: true,
+			disable_notification: true,
+			message_effect_id: 'effect-1'
+		});
+
+		const multipart = prepareSendAudio({
+			chatId: '1',
+			audio: { kind: 'upload', file: new File(['audio'], 'song.mp3') },
+			messageOptions: options
+		});
+		expect(multipart.ok && multipart.request.encoding === 'multipart'
+			? Object.fromEntries(multipart.request.body.entries())
+			: null).toMatchObject({
+			parse_mode: 'HTML',
+			reply_parameters: JSON.stringify({
+				message_id: 7,
+				allow_sending_without_reply: true,
+				quote: '<b>line</b>',
+				quote_parse_mode: 'HTML',
+				quote_position: 0
+			}),
+			protect_content: 'true',
+			disable_notification: 'true',
+			message_effect_id: 'effect-1'
+		});
 	});
 });
 

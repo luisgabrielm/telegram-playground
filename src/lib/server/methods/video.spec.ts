@@ -59,6 +59,15 @@ describe('validateSendVideo', () => {
 			})
 		).toEqual({ valid: true, errors: {} });
 	});
+
+	it('leaves formatted caption length validation to Telegram', () => {
+		expect(validateSendVideo({
+			chatId: '1',
+			video: { kind: 'reference', value: 'file-id' },
+			caption: `<b>${'x'.repeat(TELEGRAM_VIDEO_CAPTION_MAX_LENGTH)}</b>`,
+			messageOptions: { parseMode: 'HTML' }
+		})).toEqual({ valid: true, errors: {} });
+	});
 });
 
 describe('prepareSendVideo', () => {
@@ -113,5 +122,28 @@ describe('prepareSendVideo', () => {
 		expect(result.request.body.get('thumbnail')).toBe(thumbnail);
 		expect(result.request.body.get('supports_streaming')).toBe('true');
 		expect(result.request.body.get('reply_markup')).toBe('{"remove_keyboard":true}');
+	});
+
+	it('serializes parse mode and delivery options for JSON and multipart requests', () => {
+		const messageOptions = {
+			parseMode: 'HTML' as const,
+			replyParameters: { messageId: 4 },
+			disableNotification: true as const
+		};
+		const json = prepareSendVideo({
+			chatId: '1', video: { kind: 'reference', value: 'file-id' }, messageOptions
+		});
+		expect(json.ok && json.request.encoding === 'json' ? json.request.body : null).toMatchObject({
+			parse_mode: 'HTML', reply_parameters: { message_id: 4 }, disable_notification: true
+		});
+		const multipart = prepareSendVideo({
+			chatId: '1',
+			video: { kind: 'upload', file: new File(['video'], 'clip.mp4', { type: 'video/mp4' }) },
+			messageOptions
+		});
+		expect(multipart.ok && multipart.request.encoding === 'multipart'
+			? Object.fromEntries(multipart.request.body.entries()) : null).toMatchObject({
+			parse_mode: 'HTML', reply_parameters: '{"message_id":4}', disable_notification: 'true'
+		});
 	});
 });

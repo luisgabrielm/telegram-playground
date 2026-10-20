@@ -1,5 +1,7 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
 import type { InputRichBlock } from '$lib/rich-message';
+import type { MessageOptionsEditorValue, TelegramParseMode } from '$lib/message-options';
+import { buildMessageOptionsPayload } from './message-options';
 
 export type PayloadEncoding = 'json' | 'multipart';
 
@@ -22,17 +24,20 @@ export type MediaPayloadInput = {
 	duration?: string;
 	hasSpoiler?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 };
 
 export function buildSendMessagePayload(
 	chatId: string,
 	text: string,
-	replyMarkup?: TelegramReplyMarkup
+	replyMarkup?: TelegramReplyMarkup,
+	messageOptions?: MessageOptionsEditorValue
 ) {
 	return {
 		chat_id: chatId.trim(),
 		text,
-		...(replyMarkup ? { reply_markup: replyMarkup } : {})
+		...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+		...(messageOptions ? buildMessageOptionsPayload(messageOptions) : {})
 	};
 }
 
@@ -72,6 +77,7 @@ export function buildSendRichMessagePayload(input: {
 	isRtl: boolean;
 	skipEntityDetection: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 }) {
 	return {
 		chat_id: input.chatId.trim(),
@@ -80,7 +86,8 @@ export function buildSendRichMessagePayload(input: {
 			...(input.isRtl ? { is_rtl: true } : {}),
 			...(input.skipEntityDetection ? { skip_entity_detection: true } : {})
 		},
-		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
+		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {}),
+		...(input.messageOptions ? buildMessageOptionsPayload(input.messageOptions, false) : {})
 	};
 }
 
@@ -102,6 +109,7 @@ export function buildMediaPayload(input: MediaPayloadInput): {
 	if (input.duration?.trim()) payload.duration = numericPreview(input.duration);
 	if (input.hasSpoiler) payload.has_spoiler = true;
 	if (input.replyMarkup) payload.reply_markup = input.replyMarkup;
+	if (input.messageOptions) Object.assign(payload, buildMessageOptionsPayload(input.messageOptions));
 
 	return { encoding, payload };
 }
@@ -121,6 +129,7 @@ export function buildAudioAnimationPayload(input: {
 	thumbnailFile?: File | null;
 	hasSpoiler?: boolean;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 }): { encoding: PayloadEncoding; payload: Record<string, unknown> } {
 	const encoding: PayloadEncoding = input.sourceType === 'upload' ? 'multipart' : 'json';
 	const payload: Record<string, unknown> = {
@@ -138,6 +147,7 @@ export function buildAudioAnimationPayload(input: {
 	if (input.thumbnailFile) payload.thumbnail = filePreview(input.thumbnailFile);
 	if (input.hasSpoiler) payload.has_spoiler = true;
 	if (input.replyMarkup) payload.reply_markup = input.replyMarkup;
+	if (input.messageOptions) Object.assign(payload, buildMessageOptionsPayload(input.messageOptions));
 
 	return { encoding, payload };
 }
@@ -153,6 +163,7 @@ export type SendPollPayloadInput = {
 	explanation?: string;
 	openPeriod?: string | number;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 };
 
 export function buildSendPollPayload(input: SendPollPayloadInput) {
@@ -175,6 +186,7 @@ export function buildSendPollPayload(input: SendPollPayloadInput) {
 		payload.open_period = numericPreview(String(input.openPeriod));
 	}
 	if (input.replyMarkup) payload.reply_markup = input.replyMarkup;
+	if (input.messageOptions) Object.assign(payload, buildMessageOptionsPayload(input.messageOptions, false));
 
 	return payload;
 }
@@ -185,12 +197,14 @@ export type DiceEmoji = (typeof DICE_EMOJIS)[number];
 export function buildSendDicePayload(
 	chatId: string,
 	emoji: string,
-	replyMarkup?: TelegramReplyMarkup
+	replyMarkup?: TelegramReplyMarkup,
+	messageOptions?: MessageOptionsEditorValue
 ) {
 	return {
 		chat_id: chatId.trim(),
 		emoji,
-		...(replyMarkup ? { reply_markup: replyMarkup } : {})
+		...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+		...(messageOptions ? buildMessageOptionsPayload(messageOptions, false) : {})
 	};
 }
 
@@ -201,6 +215,7 @@ export function buildSendContactPayload(input: {
 	lastName: string;
 	vcard: string;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 }) {
 	return {
 		chat_id: input.chatId.trim(),
@@ -208,7 +223,8 @@ export function buildSendContactPayload(input: {
 		first_name: input.firstName,
 		...(input.lastName.trim() ? { last_name: input.lastName } : {}),
 		...(input.vcard.trim() ? { vcard: input.vcard } : {}),
-		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {})
+		...(input.replyMarkup ? { reply_markup: input.replyMarkup } : {}),
+		...(input.messageOptions ? buildMessageOptionsPayload(input.messageOptions, false) : {})
 	};
 }
 
@@ -221,6 +237,7 @@ export function buildSendLocationPayload(input: {
 	heading: string | number;
 	proximityAlertRadius: string | number;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 }) {
 	return compactPayload({
 		chat_id: input.chatId.trim(),
@@ -230,7 +247,8 @@ export function buildSendLocationPayload(input: {
 		live_period: optionalNumericPreview(input.livePeriod),
 		heading: optionalNumericPreview(input.heading),
 		proximity_alert_radius: optionalNumericPreview(input.proximityAlertRadius),
-		reply_markup: input.replyMarkup
+		reply_markup: input.replyMarkup,
+		...(input.messageOptions ? buildMessageOptionsPayload(input.messageOptions, false) : {})
 	});
 }
 
@@ -245,6 +263,7 @@ export function buildSendVenuePayload(input: {
 	googlePlaceId: string;
 	googlePlaceType: string;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: MessageOptionsEditorValue;
 }) {
 	return compactPayload({
 		chat_id: input.chatId.trim(),
@@ -256,7 +275,8 @@ export function buildSendVenuePayload(input: {
 		foursquare_type: optionalText(input.foursquareType),
 		google_place_id: optionalText(input.googlePlaceId),
 		google_place_type: optionalText(input.googlePlaceType),
-		reply_markup: input.replyMarkup
+		reply_markup: input.replyMarkup,
+		...(input.messageOptions ? buildMessageOptionsPayload(input.messageOptions, false) : {})
 	});
 }
 
@@ -266,11 +286,13 @@ export type MediaGroupPayloadItem = {
 	reference: string;
 	file: File | null;
 	caption: string;
+	parseMode?: TelegramParseMode | '';
 };
 
 export function buildMediaGroupPayload(input: {
 	chatId: string;
 	items: MediaGroupPayloadItem[];
+	messageOptions?: MessageOptionsEditorValue;
 }): { encoding: PayloadEncoding; payload: Record<string, unknown> } {
 	const encoding: PayloadEncoding = input.items.some((item) => item.sourceType === 'upload')
 		? 'multipart'
@@ -285,7 +307,8 @@ export function buildMediaGroupPayload(input: {
 		return {
 			type: item.type,
 			media: mediaValue,
-			...(item.caption.trim() ? { caption: item.caption } : {})
+			...(item.caption.trim() ? { caption: item.caption } : {}),
+			...(item.caption.trim() && item.parseMode ? { parse_mode: item.parseMode } : {})
 		};
 	});
 
@@ -294,7 +317,8 @@ export function buildMediaGroupPayload(input: {
 		payload: {
 			chat_id: input.chatId.trim(),
 			media,
-			...attachments
+			...attachments,
+			...(input.messageOptions ? buildMessageOptionsPayload(input.messageOptions, false) : {})
 		}
 	};
 }

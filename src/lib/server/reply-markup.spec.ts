@@ -25,6 +25,36 @@ describe('parseReplyMarkup', () => {
 		expect(parse(markup)).toEqual({ ok: true, value: markup });
 	});
 
+	it('accepts inline button styles and custom emoji icons', () => {
+		const markup = {
+			inline_keyboard: [
+				[
+					{ text: 'Primary', style: 'primary', url: 'https://example.com' },
+					{ text: 'Success', style: 'success', copy_text: { text: 'copied' } },
+					{
+						text: 'Danger',
+						style: 'danger',
+						icon_custom_emoji_id: '5368324170671202286',
+						callback_data: 'delete'
+					}
+				]
+			]
+		};
+
+		expect(parse(markup)).toEqual({ ok: true, value: markup });
+	});
+
+	it('normalizes the default inline button style by omitting it', () => {
+		expect(
+			parse({
+				inline_keyboard: [[{ text: 'Open', style: 'default', url: 'https://example.com' }]]
+			})
+		).toEqual({
+			ok: true,
+			value: { inline_keyboard: [[{ text: 'Open', url: 'https://example.com' }]] }
+		});
+	});
+
 	it('accepts a configured plain-text reply keyboard', () => {
 		const markup = {
 			keyboard: [[{ text: 'Yes' }, { text: 'No' }], [{ text: 'Later' }]],
@@ -84,7 +114,35 @@ describe('parseReplyMarkup', () => {
 	it('requires exactly one inline button action', () => {
 		expect(parse({ inline_keyboard: [[{ text: 'Nothing' }]] })).toMatchObject({ ok: false });
 		expect(
+			parse({
+				inline_keyboard: [[{ text: 'Metadata only', style: 'primary', icon_custom_emoji_id: '123' }]]
+			})
+		).toMatchObject({ ok: false });
+		expect(
 			parse({ inline_keyboard: [[{ text: 'Both', url: 'https://example.com', callback_data: 'both' }]] })
+		).toMatchObject({ ok: false });
+	});
+
+	it('rejects invalid inline button styles and custom emoji IDs', () => {
+		expect(
+			parse({ inline_keyboard: [[{ text: 'Bad', style: 'warning', callback_data: 'bad' }]] })
+		).toEqual({
+			ok: false,
+			errors: {
+				replyMarkup: 'Must be default, primary, success, or danger.',
+				'reply_markup.inline_keyboard[0][0].style':
+					'Must be default, primary, success, or danger.'
+			}
+		});
+		expect(
+			parse({
+				inline_keyboard: [[{ text: 'Empty', icon_custom_emoji_id: '  ', callback_data: 'bad' }]]
+			})
+		).toMatchObject({ ok: false });
+		expect(
+			parse({
+				inline_keyboard: [[{ text: 'Number', icon_custom_emoji_id: 123, callback_data: 'bad' }]]
+			})
 		).toMatchObject({ ok: false });
 	});
 

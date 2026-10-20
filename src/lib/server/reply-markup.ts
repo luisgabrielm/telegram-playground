@@ -1,6 +1,8 @@
 import type {
 	ForceReply,
 	InlineKeyboardButton,
+	InlineKeyboardButtonAppearance,
+	InlineKeyboardButtonStyle,
 	InlineKeyboardMarkup,
 	ReplyKeyboardButton,
 	ReplyKeyboardMarkup,
@@ -11,6 +13,7 @@ import type {
 const COPY_TEXT_MAX_LENGTH = 256;
 const CALLBACK_DATA_MAX_BYTES = 64;
 const PLACEHOLDER_MAX_LENGTH = 64;
+const INLINE_BUTTON_STYLES = ['primary', 'success', 'danger'] as const;
 
 export type ReplyMarkupFieldErrors = Record<string, string> & { replyMarkup: string };
 
@@ -83,11 +86,53 @@ function parseBoolean(value: unknown, path: string): boolean {
 	return value;
 }
 
+function parseInlineButtonAppearance(
+	button: Record<string, unknown>,
+	path: string
+): InlineKeyboardButtonAppearance {
+	const appearance: InlineKeyboardButtonAppearance = {};
+
+	if ('style' in button && button.style !== 'default') {
+		if (
+			typeof button.style !== 'string' ||
+			!INLINE_BUTTON_STYLES.includes(button.style as InlineKeyboardButtonStyle)
+		) {
+			throw new ReplyMarkupValidationError(
+				'Must be default, primary, success, or danger.',
+				`${path}.style`
+			);
+		}
+
+		appearance.style = button.style as InlineKeyboardButtonStyle;
+	}
+
+	if ('icon_custom_emoji_id' in button) {
+		if (
+			typeof button.icon_custom_emoji_id !== 'string' ||
+			button.icon_custom_emoji_id.trim().length === 0
+		) {
+			throw new ReplyMarkupValidationError(
+				'Enter a custom emoji ID.',
+				`${path}.icon_custom_emoji_id`
+			);
+		}
+
+		appearance.icon_custom_emoji_id = button.icon_custom_emoji_id;
+	}
+
+	return appearance;
+}
+
 function parseInlineButton(value: unknown, path: string): InlineKeyboardButton {
 	const button = assertObject(value, path);
-	assertOnlyKeys(button, ['text', 'url', 'copy_text', 'callback_data'], path);
+	assertOnlyKeys(
+		button,
+		['text', 'url', 'copy_text', 'callback_data', 'style', 'icon_custom_emoji_id'],
+		path
+	);
 
 	const text = assertNonEmptyLabel(button.text, `${path}.text`);
+	const appearance = parseInlineButtonAppearance(button, path);
 	const actions = ['url', 'copy_text', 'callback_data'].filter((key) => key in button);
 
 	if (actions.length !== 1) {
@@ -110,7 +155,7 @@ function parseInlineButton(value: unknown, path: string): InlineKeyboardButton {
 			throw new ReplyMarkupValidationError('Use an HTTP, HTTPS, or tg:// URL.', `${path}.url`);
 		}
 
-		return { text, url: button.url };
+		return { text, ...appearance, url: button.url };
 	}
 
 	if ('copy_text' in button) {
@@ -129,7 +174,7 @@ function parseInlineButton(value: unknown, path: string): InlineKeyboardButton {
 			);
 		}
 
-		return { text, copy_text: { text: copyText.text } };
+		return { text, ...appearance, copy_text: { text: copyText.text } };
 	}
 
 	if (typeof button.callback_data !== 'string') {
@@ -144,7 +189,7 @@ function parseInlineButton(value: unknown, path: string): InlineKeyboardButton {
 		);
 	}
 
-	return { text, callback_data: button.callback_data };
+	return { text, ...appearance, callback_data: button.callback_data };
 }
 
 function parseRows<T>(
@@ -298,4 +343,9 @@ export function parseReplyMarkup(value: string): ParseReplyMarkupResult {
 	}
 }
 
-export { CALLBACK_DATA_MAX_BYTES, COPY_TEXT_MAX_LENGTH, PLACEHOLDER_MAX_LENGTH };
+export {
+	CALLBACK_DATA_MAX_BYTES,
+	COPY_TEXT_MAX_LENGTH,
+	INLINE_BUTTON_STYLES,
+	PLACEHOLDER_MAX_LENGTH
+};

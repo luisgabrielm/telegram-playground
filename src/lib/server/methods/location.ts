@@ -1,4 +1,6 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import { appendMessageOptionsToJson } from '$lib/server/message-options';
 
 export const TELEGRAM_LOCATION_ACCURACY_MIN = 0;
 export const TELEGRAM_LOCATION_ACCURACY_MAX = 1500;
@@ -19,6 +21,7 @@ export interface SendLocationInput {
 	heading?: string | number;
 	proximityAlertRadius?: string | number;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendLocationBody {
@@ -87,7 +90,7 @@ export function prepareSendLocation(input: SendLocationInput): PreparedSendLocat
 		ok: true,
 		request: {
 			method: 'sendLocation',
-			body: {
+			body: appendMessageOptionsToJson({
 				chat_id: input.chatId.trim(),
 				latitude,
 				longitude,
@@ -100,7 +103,7 @@ export function prepareSendLocation(input: SendLocationInput): PreparedSendLocat
 					? { proximity_alert_radius: proximityAlertRadius }
 					: {}),
 				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-			}
+			}, input.messageOptions ?? {}, false)
 		}
 	};
 }

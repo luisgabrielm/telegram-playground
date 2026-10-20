@@ -45,4 +45,10 @@ describe('prepareSendVenue', () => {
 			address: 'Enter a venue address.'
 		});
 	});
+
+	it('serializes protected delivery options', () => {
+		const result = prepareSendVenue({ chatId: '42', latitude: 0, longitude: 0, title: 'A', address: 'B',
+			messageOptions: { protectContent: true, messageEffectId: 'effect' } });
+		expect(result.ok && result.request.body).toMatchObject({ protect_content: true, message_effect_id: 'effect' });
+	});
 });

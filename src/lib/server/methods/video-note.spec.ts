@@ -41,6 +41,39 @@ describe('validateSendVideoNote', () => {
 });
 
 describe('prepareSendVideoNote', () => {
+	it('serializes delivery options but omits parse mode', () => {
+		const messageOptions = {
+			parseMode: 'HTML' as const,
+			replyParameters: { messageId: 11 },
+			protectContent: true as const,
+			disableNotification: true as const,
+			messageEffectId: 'effect'
+		};
+		const json = prepareSendVideoNote({
+			chatId: '1', videoNote: { kind: 'reference', value: 'file-id' }, messageOptions
+		});
+		expect(json.ok && json.request.encoding === 'json' ? json.request.body : null).toMatchObject({
+			reply_parameters: { message_id: 11 }, protect_content: true,
+			disable_notification: true, message_effect_id: 'effect'
+		});
+		if (json.ok && json.request.encoding === 'json') {
+			expect(json.request.body).not.toHaveProperty('parse_mode');
+		}
+
+		const multipart = prepareSendVideoNote({
+			chatId: '1',
+			videoNote: { kind: 'upload', file: new File(['video'], 'note.mp4', { type: 'video/mp4' }) },
+			messageOptions
+		});
+		expect(multipart.ok && multipart.request.encoding === 'multipart'
+			? Object.fromEntries(multipart.request.body.entries()) : null).toMatchObject({
+			reply_parameters: '{"message_id":11}', protect_content: 'true',
+			disable_notification: 'true', message_effect_id: 'effect'
+		});
+		if (multipart.ok && multipart.request.encoding === 'multipart') {
+			expect(multipart.request.body.has('parse_mode')).toBe(false);
+		}
+	});
 	it('builds a JSON request for a reusable Telegram file ID', () => {
 		expect(
 			prepareSendVideoNote({

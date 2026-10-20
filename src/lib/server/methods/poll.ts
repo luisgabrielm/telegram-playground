@@ -1,4 +1,6 @@
 import type { TelegramReplyMarkup } from '$lib/reply-markup';
+import type { NormalizedMessageOptions } from '$lib/message-options';
+import { appendMessageOptionsToJson } from '$lib/server/message-options';
 
 export const TELEGRAM_POLL_QUESTION_MAX_LENGTH = 300;
 export const TELEGRAM_POLL_OPTION_MIN_COUNT = 1;
@@ -22,6 +24,7 @@ export interface SendPollInput {
 	explanation?: string;
 	openPeriod?: string | number;
 	replyMarkup?: TelegramReplyMarkup;
+	messageOptions?: NormalizedMessageOptions;
 }
 
 export interface SendPollBody {
@@ -101,7 +104,7 @@ export function prepareSendPoll(input: SendPollInput): PreparedSendPoll {
 		ok: true,
 		request: {
 			method: 'sendPoll',
-			body: {
+			body: appendMessageOptionsToJson({
 				chat_id: input.chatId.trim(),
 				question: input.question,
 				options: input.options.map((text) => ({ text })),
@@ -114,7 +117,7 @@ export function prepareSendPoll(input: SendPollInput): PreparedSendPoll {
 				...(input.explanation?.trim() ? { explanation: input.explanation } : {}),
 				...(typeof openPeriod === 'number' ? { open_period: openPeriod } : {}),
 				...(input.replyMarkup === undefined ? {} : { reply_markup: input.replyMarkup })
-			}
+			}, input.messageOptions ?? {}, false)
 		}
 	};
 }
